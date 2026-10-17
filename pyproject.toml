@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "continual-arc-baselines"
+version = "0.1.0"
+description = "The learners, harness adapters and tracking proxy evaluated on the Continual-ARC benchmark"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = { text = "Apache-2.0" }
+authors = [{ name = "unify" }]
+dependencies = [
+    "agent-client-protocol==0.12.1",
+    "continual-arc[plots]",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+arc3 = ["continual-arc[arc3]"]
+
+[project.urls]
+Repository = "https://github.com/unifyai/continual-arc-baselines"
+
+[tool.uv.sources]
+continual-arc = { git = "https://github.com/unifyai/continual-arc", branch = "main" }
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+arc-baselines = "continual_arc_baselines.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/continual_arc_baselines", "src/continual_workbench"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["src/continual_workbench"]  # the workbench's modules as it ships them, under its own lint settings
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-third-party = ["continual_workbench"]

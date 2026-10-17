@@ -1,0 +1,233 @@
+# The cells the paper reports, as launch-cell.sh lines, each after the empty-reply rule its cells ran under
+# (restart: launched before 17:11 UTC on 28 September 2026). A floors line launches the two floor cells.
+restart acp fresh 0 arc1-small luna6-high hermes
+restart acp fresh 0 arc1-small luna6-high openclaw
+restart acp fresh 0 arc1-small luna6-low hermes
+reprompt acp fresh 0 arc1-small luna6-low openclaw
+restart acp fresh 0 arc1-small luna6-medium hermes
+restart acp fresh 0 arc1-small luna6-medium openclaw
+restart acp random 0 arc1-small luna6-high hermes
+restart acp random 0 arc1-small luna6-high openclaw
+restart acp random 0 arc1-small luna6-low hermes
+reprompt acp random 0 arc1-small luna6-low openclaw
+restart acp random 0 arc1-small luna6-medium hermes
+restart acp random 0 arc1-small luna6-medium openclaw
+restart acp sequential 0 arc1-small luna6-high hermes
+restart acp sequential 0 arc1-small luna6-high openclaw
+restart acp sequential 0 arc1-small luna6-low hermes
+reprompt acp sequential 0 arc1-small luna6-low openclaw
+restart acp sequential 0 arc1-small luna6-medium hermes
+restart acp sequential 0 arc1-small luna6-medium openclaw
+restart acp workstreams 0 arc1-small luna6-high hermes
+restart acp workstreams 0 arc1-small luna6-high openclaw
+restart acp workstreams 0 arc1-small luna6-low hermes
+reprompt acp workstreams 0 arc1-small luna6-low openclaw
+restart acp workstreams 0 arc1-small luna6-medium hermes
+restart acp workstreams 0 arc1-small luna6-medium openclaw
+reprompt ask-acp random 0 arc1-small luna6-high hermes
+reprompt ask-acp random 0 arc1-small luna6-high openclaw
+reprompt ask-acp random 0 arc1-small luna6-low hermes
+reprompt ask-acp random 0 arc1-small luna6-low openclaw
+reprompt ask-acp random 0 arc1-small luna6-medium hermes
+reprompt ask-acp random 0 arc1-small luna6-medium openclaw
+reprompt ask-acp sequential 0 arc1-small luna6-high hermes
+reprompt ask-acp sequential 0 arc1-small luna6-high openclaw
+reprompt ask-acp sequential 0 arc1-small luna6-low hermes
+reprompt ask-acp sequential 0 arc1-small luna6-low openclaw
+reprompt ask-acp sequential 0 arc1-small luna6-medium hermes
+reprompt ask-acp sequential 0 arc1-small luna6-medium openclaw
+reprompt ask-acp workstreams 0 arc1-small luna6-high hermes
+reprompt ask-acp workstreams 0 arc1-small luna6-high openclaw
+reprompt ask-acp workstreams 0 arc1-small luna6-low hermes
+reprompt ask-acp workstreams 0 arc1-small luna6-low openclaw
+reprompt ask-acp workstreams 0 arc1-small luna6-medium hermes
+reprompt ask-acp workstreams 0 arc1-small luna6-medium openclaw
+reprompt ask-harness luna6-high arc1-small random 0
+reprompt ask-harness luna6-high arc1-small sequential 0
+reprompt ask-harness luna6-high arc1-small workstreams 0
+reprompt ask-harness luna6-low arc1-small random 0
+reprompt ask-harness luna6-low arc1-small sequential 0
+reprompt ask-harness luna6-low arc1-small workstreams 0
+reprompt ask-harness luna6-medium arc1-small random 0
+reprompt ask-harness luna6-medium arc1-small sequential 0
+reprompt ask-harness luna6-medium arc1-small workstreams 0
+restart floors luna6-high fresh 0 arc1-small
+restart floors luna6-high fresh 0 arc2-small
+restart floors luna6-high random 0 arc1-small
+restart floors luna6-high random 0 arc2-small
+restart floors luna6-high sequential 0 arc1-small
+restart floors luna6-high workstreams 0 arc1-small
+restart floors luna6-high workstreams 0 arc2-small
+restart floors luna6-low fresh 0 arc1-small
+restart floors luna6-low fresh 0 arc2-small
+restart floors luna6-low random 0 arc1-small
+restart floors luna6-low random 0 arc2-small
+restart floors luna6-low sequential 0 arc1-small
+restart floors luna6-low workstreams 0 arc1-small
+restart floors luna6-max fresh 0 arc2-small
+restart floors luna6-max random 0 arc2-small
+restart floors luna6-max workstreams 0 arc2-small
+restart floors luna6-medium fresh 0 arc1-small
+restart floors luna6-medium fresh 0 arc2-small
+restart floors luna6-medium random 0 arc1-small
+restart floors luna6-medium random 0 arc2-small
+restart floors luna6-medium sequential 0 arc1-small
+restart floors luna6-medium workstreams 0 arc1-small
+restart floors luna6-medium workstreams 0 arc2-small
+restart floors luna6-xhigh fresh 0 arc2-small
+restart floors luna6-xhigh random 0 arc2-small
+restart floors luna6-xhigh workstreams 0 arc2-small
+restart harness luna6-high arc1-small fresh 0
+restart harness luna6-high arc1-small random 0
+restart harness luna6-high arc1-small sequential 0
+restart harness luna6-high arc1-small workstreams 0
+restart harness luna6-high arc2-small fresh 0
+restart harness luna6-high arc2-small sequential 0
+restart harness luna6-high arc2-small workstreams 0
+restart harness luna6-low arc1-small fresh 0
+restart harness luna6-low arc1-small random 0
+restart harness luna6-low arc1-small sequential 0
+restart harness luna6-low arc1-small workstreams 0
+restart harness luna6-max arc2-small fresh 0
+restart harness luna6-max arc2-small sequential 0
+restart harness luna6-max arc2-small workstreams 0
+restart harness luna6-medium arc1-small fresh 0
+restart harness luna6-medium arc1-small random 0
+restart harness luna6-medium arc1-small sequential 0
+restart harness luna6-medium arc1-small workstreams 0
+restart harness luna6-medium arc2-small fresh 0
+restart harness luna6-medium arc2-small sequential 0
+restart harness luna6-medium arc2-small workstreams 0
+restart harness luna6-xhigh arc2-small fresh 0
+restart harness luna6-xhigh arc2-small sequential 0
+restart harness luna6-xhigh arc2-small workstreams 0
+restart harness opus55-low arc3-small fresh 0
+restart harness opus55-low arc3-small workstreams 0
+restart method luna6-high fresh 0 arc1-small
+restart method luna6-high fresh 0 arc2-small
+restart method luna6-high random 0 arc1-small
+restart method luna6-high sequential 0 arc1-small
+restart method luna6-high workstreams 0 arc1-small
+restart method luna6-high workstreams 0 arc2-small
+restart method luna6-low fresh 0 arc1-small
+restart method luna6-low random 0 arc1-small
+restart method luna6-low sequential 0 arc1-small
+restart method luna6-low workstreams 0 arc1-small
+restart method luna6-max fresh 0 arc2-small
+restart method luna6-max workstreams 0 arc2-small
+restart method luna6-medium fresh 0 arc1-small
+restart method luna6-medium fresh 0 arc2-small
+restart method luna6-medium random 0 arc1-small
+restart method luna6-medium sequential 0 arc1-small
+restart method luna6-medium workstreams 0 arc1-small
+restart method luna6-medium workstreams 0 arc2-small
+restart method luna6-xhigh fresh 0 arc2-small
+restart method luna6-xhigh workstreams 0 arc2-small
+reprompt pl-acp random 0 arc1-small luna6-high hermes
+reprompt pl-acp random 0 arc1-small luna6-high openclaw
+reprompt pl-acp random 0 arc1-small luna6-low hermes
+reprompt pl-acp random 0 arc1-small luna6-low openclaw
+reprompt pl-acp random 0 arc1-small luna6-medium hermes
+reprompt pl-acp random 0 arc1-small luna6-medium openclaw
+reprompt pl-acp sequential 0 arc1-small luna6-high hermes
+reprompt pl-acp sequential 0 arc1-small luna6-high openclaw
+reprompt pl-acp sequential 0 arc1-small luna6-low hermes
+reprompt pl-acp sequential 0 arc1-small luna6-low openclaw
+reprompt pl-acp sequential 0 arc1-small luna6-medium hermes
+reprompt pl-acp sequential 0 arc1-small luna6-medium openclaw
+reprompt pl-acp workstreams 0 arc1-small luna6-high hermes
+reprompt pl-acp workstreams 0 arc1-small luna6-high openclaw
+reprompt pl-acp workstreams 0 arc1-small luna6-low hermes
+reprompt pl-acp workstreams 0 arc1-small luna6-low openclaw
+reprompt pl-acp workstreams 0 arc1-small luna6-medium hermes
+reprompt pl-acp workstreams 0 arc1-small luna6-medium openclaw
+reprompt pl-harness luna6-high arc1-small random 0
+reprompt pl-harness luna6-high arc1-small sequential 0
+reprompt pl-harness luna6-high arc1-small workstreams 0
+reprompt pl-harness luna6-low arc1-small random 0
+reprompt pl-harness luna6-low arc1-small sequential 0
+reprompt pl-harness luna6-low arc1-small workstreams 0
+reprompt pl-harness luna6-medium arc1-small random 0
+reprompt pl-harness luna6-medium arc1-small sequential 0
+reprompt pl-harness luna6-medium arc1-small workstreams 0
+restart stateless-acp fresh 0 arc1-small luna6-high hermes
+restart stateless-acp fresh 0 arc1-small luna6-high openclaw
+restart stateless-acp fresh 0 arc1-small luna6-low hermes
+reprompt stateless-acp fresh 0 arc1-small luna6-low openclaw
+restart stateless-acp fresh 0 arc1-small luna6-medium hermes
+restart stateless-acp fresh 0 arc1-small luna6-medium openclaw
+restart stateless-acp random 0 arc1-small luna6-high hermes
+restart stateless-acp random 0 arc1-small luna6-high openclaw
+restart stateless-acp random 0 arc1-small luna6-low hermes
+reprompt stateless-acp random 0 arc1-small luna6-low openclaw
+restart stateless-acp random 0 arc1-small luna6-medium hermes
+restart stateless-acp random 0 arc1-small luna6-medium openclaw
+restart stateless-acp sequential 0 arc1-small luna6-high hermes
+restart stateless-acp sequential 0 arc1-small luna6-high openclaw
+restart stateless-acp sequential 0 arc1-small luna6-low hermes
+reprompt stateless-acp sequential 0 arc1-small luna6-low openclaw
+restart stateless-acp sequential 0 arc1-small luna6-medium hermes
+restart stateless-acp sequential 0 arc1-small luna6-medium openclaw
+restart stateless-acp workstreams 0 arc1-small luna6-high hermes
+restart stateless-acp workstreams 0 arc1-small luna6-high openclaw
+restart stateless-acp workstreams 0 arc1-small luna6-low hermes
+reprompt stateless-acp workstreams 0 arc1-small luna6-low openclaw
+restart stateless-acp workstreams 0 arc1-small luna6-medium hermes
+restart stateless-acp workstreams 0 arc1-small luna6-medium openclaw
+restart stateless-harness luna6-high arc1-small fresh 0
+restart stateless-harness luna6-high arc1-small random 0
+restart stateless-harness luna6-high arc1-small sequential 0
+restart stateless-harness luna6-high arc1-small workstreams 0
+restart stateless-harness luna6-high arc2-small sequential 0
+restart stateless-harness luna6-high arc2-small workstreams 0
+restart stateless-harness luna6-low arc1-small fresh 0
+restart stateless-harness luna6-low arc1-small random 0
+restart stateless-harness luna6-low arc1-small sequential 0
+restart stateless-harness luna6-low arc1-small workstreams 0
+restart stateless-harness luna6-max arc2-small sequential 0
+restart stateless-harness luna6-max arc2-small workstreams 0
+restart stateless-harness luna6-medium arc1-small fresh 0
+restart stateless-harness luna6-medium arc1-small random 0
+restart stateless-harness luna6-medium arc1-small sequential 0
+restart stateless-harness luna6-medium arc1-small workstreams 0
+restart stateless-harness luna6-medium arc2-small sequential 0
+restart stateless-harness luna6-medium arc2-small workstreams 0
+restart stateless-harness luna6-xhigh arc2-small sequential 0
+restart stateless-harness luna6-xhigh arc2-small workstreams 0
+restart stateless-harness opus55-low arc3-small workstreams 0
+reprompt stateless-method luna6-high random 0 arc1-small
+reprompt stateless-method luna6-high sequential 0 arc1-small
+reprompt stateless-method luna6-high workstreams 0 arc1-small
+reprompt stateless-method luna6-low random 0 arc1-small
+reprompt stateless-method luna6-low sequential 0 arc1-small
+reprompt stateless-method luna6-low workstreams 0 arc1-small
+reprompt stateless-method luna6-medium random 0 arc1-small
+reprompt stateless-method luna6-medium sequential 0 arc1-small
+reprompt stateless-method luna6-medium workstreams 0 arc1-small
+reprompt stateless-pl-acp random 0 arc1-small luna6-high hermes
+reprompt stateless-pl-acp random 0 arc1-small luna6-high openclaw
+reprompt stateless-pl-acp random 0 arc1-small luna6-low hermes
+reprompt stateless-pl-acp random 0 arc1-small luna6-low openclaw
+reprompt stateless-pl-acp random 0 arc1-small luna6-medium hermes
+reprompt stateless-pl-acp random 0 arc1-small luna6-medium openclaw
+reprompt stateless-pl-acp sequential 0 arc1-small luna6-high hermes
+reprompt stateless-pl-acp sequential 0 arc1-small luna6-high openclaw
+reprompt stateless-pl-acp sequential 0 arc1-small luna6-low hermes
+reprompt stateless-pl-acp sequential 0 arc1-small luna6-low openclaw
+reprompt stateless-pl-acp sequential 0 arc1-small luna6-medium hermes
+reprompt stateless-pl-acp sequential 0 arc1-small luna6-medium openclaw
+reprompt stateless-pl-acp workstreams 0 arc1-small luna6-high hermes
+reprompt stateless-pl-acp workstreams 0 arc1-small luna6-high openclaw
+reprompt stateless-pl-acp workstreams 0 arc1-small luna6-low hermes
+reprompt stateless-pl-acp workstreams 0 arc1-small luna6-low openclaw
+reprompt stateless-pl-acp workstreams 0 arc1-small luna6-medium hermes
+reprompt stateless-pl-acp workstreams 0 arc1-small luna6-medium openclaw
+reprompt stateless-pl-harness luna6-high arc1-small random 0
+reprompt stateless-pl-harness luna6-high arc1-small sequential 0
+reprompt stateless-pl-harness luna6-high arc1-small workstreams 0
+reprompt stateless-pl-harness luna6-low arc1-small random 0
+reprompt stateless-pl-harness luna6-low arc1-small sequential 0
+reprompt stateless-pl-harness luna6-low arc1-small workstreams 0
+reprompt stateless-pl-harness luna6-medium arc1-small random 0
+reprompt stateless-pl-harness luna6-medium arc1-small sequential 0
+reprompt stateless-pl-harness luna6-medium arc1-small workstreams 0
