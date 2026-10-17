@@ -23,7 +23,7 @@ arc3 = ["continual-arc[arc3]"]
 Repository = "https://github.com/unifyai/continual-arc-baselines"
 
 [tool.uv.sources]
-continual-arc = { git = "https://github.com/unifyai/continual-arc", branch = "main" }
+continual-arc = { git = "https://github.com/unifyai/continual-arc", tag = "v0.1.0" }
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
