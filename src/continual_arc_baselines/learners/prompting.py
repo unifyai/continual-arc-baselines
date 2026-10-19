@@ -12,8 +12,8 @@
   demonstration, and runs it on later instances first; on a wrong answer it asks
   for a repair given the failure and the demonstrations.
 
-All three see the task id only as an opaque alias, render grids the way the
-harness protocol does, and count nothing themselves: model calls go through the
+All three see the task only under the run's name (the runner's view), render
+grids the way the harness protocol does, and count nothing themselves: model calls go through the
 proxy and are journaled there. Programs run in a subprocess under the same
 sandbox the harnesses get, with no network and no access to the benchmark.
 """
@@ -34,7 +34,7 @@ from continual_arc.env import (
     Action,
     DemosFeedback,
     Feedback,
-    Observation,
+    LearnerObservation,
     RequestDemos,
     Submit,
     SubmitFeedback,
@@ -43,7 +43,7 @@ from continual_arc.grids import InvalidGrid, normalize_grid
 from continual_arc.learner import BaseLearner
 
 from continual_arc_baselines.learners.chat import ChatClient
-from continual_arc_baselines.systems.protocol import TaskAliases, render_grid, render_pairs
+from continual_arc_baselines.systems.protocol import render_grid, render_pairs
 from continual_arc_baselines.systems.sandbox import (
     SandboxSpec,
     darwin_user_dirs,
@@ -177,11 +177,11 @@ def run_transform(code: str, grid, *, sandbox: str, timeout_s: float, workdir: P
 
 
 class _Floor(BaseLearner):
-    """Shared plumbing: the client, aliases, per-instance state."""
+    """Shared plumbing: the client and per-instance state."""
 
     name = "floor"
 
-    def __init__(self, model: str = "IFM/K2-Horizon-7B", alias_tasks: bool = True,
+    def __init__(self, model: str = "IFM/K2-Horizon-7B",
                  max_calls_per_instance: int = 6, chat: ChatClient | None = None,
                  defaults: dict[str, Any] | None = None, timeout_s: float = 600.0,
                  style: str = "reasoned", demos_wanted: int = 8):
@@ -190,7 +190,6 @@ class _Floor(BaseLearner):
         self.style = style
         self.model = model
         self.chat = chat or ChatClient(model, defaults=defaults, timeout_s=timeout_s)
-        self.aliases = TaskAliases() if alias_tasks else None
         self.max_calls_per_instance = max_calls_per_instance
         # Demonstrations arrive one pair per request since 26 Sep; a floor asks for this many (all eight, Dan)
         # before its first answer, and stops early only if a request is refused or returns nothing.
@@ -200,16 +199,13 @@ class _Floor(BaseLearner):
         self._calls_this_instance = 0
         self.stats = {"parse_failures": 0, "chat_errors": 0, "truncations": 0}
 
-    def label(self, task_id: str) -> str:
-        return self.aliases.alias(task_id) if self.aliases else task_id
-
-    def _begin(self, obs: Observation) -> None:
+    def _begin(self, obs: LearnerObservation) -> None:
         if obs.attempts_used == 0 and obs.demo_requests_used == 0 and (self._task != (obs.task_id, obs.step)):
             self._task = (obs.task_id, obs.step)
             self._feedback = []
             self._calls_this_instance = 0
 
-    def _solve(self, obs: Observation, pairs: list) -> Action:
+    def _solve(self, obs: LearnerObservation, pairs: list) -> Action:
         if self._calls_this_instance >= self.max_calls_per_instance:
             # Out of model calls: no learner may abandon an instance (one protocol for every
             # row, 20 Sep), so submit an invalid grid, charged like a wrong answer, until the
@@ -219,7 +215,7 @@ class _Floor(BaseLearner):
         try:
             text = self.chat.complete([
                 {"role": "system", "content": SYSTEM + STYLES[self.style]},
-                {"role": "user", "content": _prompt(self.label(obs.task_id), pairs, obs.input, self._feedback)},
+                {"role": "user", "content": _prompt(obs.task_id, pairs, obs.input, self._feedback)},
             ])
         except Exception as error:  # a provider failure costs the action, not the run
             self.stats["chat_errors"] += 1
@@ -235,7 +231,7 @@ class _Floor(BaseLearner):
             return Submit([[10]])  # invalid on purpose: charged like a wrong answer, keeps accounting honest
         return Submit(grid)
 
-    def observe(self, obs: Observation, action: Action, feedback: Feedback) -> None:
+    def observe(self, obs: LearnerObservation, action: Action, feedback: Feedback) -> None:
         if isinstance(feedback, SubmitFeedback) and not feedback.correct and isinstance(action, Submit):
             self._feedback.append(f"Attempt {feedback.attempts_used}: INCORRECT. You submitted:\n"
                                   + (render_grid(action.grid) if action.grid != [[10]] else "(unreadable)"))
@@ -245,7 +241,7 @@ class _Floor(BaseLearner):
                 "floor_parse_failures": float(self.stats["parse_failures"])}
 
     def describe(self) -> dict[str, Any]:
-        return {"system": self.name, "model": self.model, "task_aliases": self.aliases is not None,
+        return {"system": self.name, "model": self.model,
                 "max_calls_per_instance": self.max_calls_per_instance, "style": self.style,
                 "demos_wanted": self.demos_wanted}
 
@@ -265,7 +261,7 @@ class StatelessLearner(_Floor):
     def reset(self) -> None:
         self._pairs = []
 
-    def act(self, obs: Observation) -> Action:
+    def act(self, obs: LearnerObservation) -> Action:
         self._begin(obs)
         if self._instance != (obs.task_id, obs.step):  # a new instance: nothing carries over
             self._instance, self._pairs, self._refused = (obs.task_id, obs.step), [], False
@@ -296,7 +292,7 @@ class DemoCacheLearner(_Floor):
         self.cache = {}
         self._complete = set()
 
-    def act(self, obs: Observation) -> Action:
+    def act(self, obs: LearnerObservation) -> Action:
         self._begin(obs)
         if self._instance != (obs.task_id, obs.step):
             self._instance, self._refused = (obs.task_id, obs.step), False
@@ -361,7 +357,7 @@ class ProgramLibraryLearner(_Floor):
         return None
 
     def _induce(self, task_id: str, pairs: list, previous: str | None, why: str | None) -> str | None:
-        user = [f"Task {self.label(task_id)}.", render_pairs(pairs)]
+        user = [f"Task {task_id}.", render_pairs(pairs)]
         if previous:
             user.append("\nYour previous program:\n```python\n" + previous + "\n```")
             user.append("It is wrong: " + (why or "unknown") + "\nWrite a corrected program.")
@@ -378,7 +374,7 @@ class ProgramLibraryLearner(_Floor):
 
     # -- the learner ----------------------------------------------------------
 
-    def act(self, obs: Observation) -> Action:
+    def act(self, obs: LearnerObservation) -> Action:
         fresh = obs.attempts_used == 0 and obs.demo_requests_used == 0
         if fresh and self._task != (obs.task_id, obs.step):
             self._repairs_this_instance = 0

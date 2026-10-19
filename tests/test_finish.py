@@ -1,8 +1,11 @@
 """The finish protocol (a system's end="finish", every harness row since 27 Sep 2026, Dan): the rules state facts only,
 the verdict comes alone, and the harness ends each instance itself with the finish action, refused until the instance is
-over. A scripted system plays one instance of a two-pair task through the environment."""
+over. A scripted system plays one instance of a two-pair task through the environment, shown it as the runner shows a
+learner."""
 
+from continual_arc.aliases import TaskAliases
 from continual_arc.env import ContinualArcEnv, EnvConfig
+from continual_arc.runner import learner_view
 from continual_arc.schedule import RANDOM, stream_schedule
 from continual_arc.tasks import FixedArcSource, TaskRegistry
 
@@ -47,11 +50,13 @@ def play(system, tmp_path):
     sched = stream_schedule(["f"], 1, seed=0, source=source.name, params=RANDOM, mode="random")
     env = ContinualArcEnv(sched, registry=TaskRegistry({source.name: source}), config=EnvConfig())
     system.attach(tmp_path / "system", {})
+    aliases = TaskAliases()
     obs = env.reset()
     while obs is not None:
-        action = system.act(obs)
+        shown = learner_view(obs, aliases)
+        action = system.act(shown)
         result = env.step(action)
-        system.observe(obs, action, result.feedback)
+        system.observe(shown, action, result.feedback)
         obs = result.observation
     return env
 

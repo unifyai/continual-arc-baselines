@@ -9,10 +9,8 @@ what it says.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
-import secrets
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -21,7 +19,7 @@ from continual_arc.env import (
     DemosFeedback,
     Feedback,
     GiveUpFeedback,
-    Observation,
+    LearnerObservation,
     RequestDemos,
     Submit,
     SubmitFeedback,
@@ -137,80 +135,10 @@ def render_feedback(action: Action, feedback: Feedback, compact: bool = False) -
     return f"Feedback: {feedback!r}"
 
 
-class TaskAliases:
-    """Opaque, run-specific names for tasks.
-
-    The real ARC task id (``673ef223``) is a lookup key: the public ARC-AGI-1 files,
-    the Re-ARC generators and verifiers, and this benchmark's own records are all
-    indexed by it. A system that learns the id can fetch the answer instead of
-    inferring the rule (one did, from the venv that launched it). Systems therefore
-    see ``task-<8 hex>`` derived from the id with a salt drawn once per run, so the
-    name is stable within a run (memory keyed on it still works) and useless
-    outside it. The mapping is kept only in the runner; the records on disk keep
-    the real ids.
-    """
-
-    def __init__(self, salt: str | None = None, style: str = "hex"):
-        if style not in ALIAS_STYLES:
-            raise ValueError(f"alias style must be one of {ALIAS_STYLES}, not {style!r}")
-        self.salt = salt or secrets.token_hex(16)
-        self.style = style
-        self._cache: dict[str, str] = {}
-
-    def alias(self, task_id: str) -> str:
-        if task_id not in self._cache:
-            digest = hashlib.blake2b(f"{self.salt}:{task_id}".encode(), digest_size=8).digest()
-            if self.style == "names":
-                name = codename(digest)
-                taken = set(self._cache.values())
-                n = 2
-                while name in taken:   # a collision inside one run gets a numeric suffix
-                    name = f"{codename(digest)}-{n}"
-                    n += 1
-                self._cache[task_id] = name
-            else:
-                self._cache[task_id] = f"task-{digest[:4].hex()}"
-        return self._cache[task_id]
-
-
-ALIAS_STYLES = ("hex", "names")
-"""``hex``: ``task-3f2a9c1e``, the name an issue tracker would give a ticket. ``names``: a two-word
-codename such as ``amber-heron``, the name a project or a client account carries in a working
-setting (ablation of 23 Sep: does a name a person would use make a harness more likely to look its
-own notes up by it?). Both are meaningless with respect to the task's rule, so neither hands a
-system any ARC-specific structure, and both are salted per run."""
-
-_CODENAME_FIRST = (
-    "amber", "ashen", "birch", "bramble", "briar", "cedar", "cinder", "cobalt", "copper", "coral",
-    "crimson", "dapple", "dusky", "ebony", "ember", "fallow", "fennel", "flint", "garnet", "ginger",
-    "hazel", "heather", "hollow", "indigo", "ivory", "jade", "juniper", "kestrel", "lichen", "linen",
-    "maple", "marble", "mossy", "nettle", "ochre", "olive", "onyx", "opal", "pebble", "pewter",
-    "quartz", "rowan", "russet", "saffron", "sable", "sepia", "silver", "slate", "sorrel", "tawny",
-    "teal", "thistle", "timber", "topaz", "umber", "velvet", "walnut", "willow", "wren", "yarrow",
-)
-_CODENAME_SECOND = (
-    "anchor", "arbor", "atlas", "bay", "beacon", "bell", "bridge", "brook", "canyon", "cape",
-    "compass", "cove", "crane", "crest", "dune", "falcon", "ferry", "field", "fjord", "forge",
-    "gable", "glen", "grove", "harbor", "heron", "hill", "isle", "keel", "kiln", "lantern",
-    "ledger", "loom", "marsh", "meadow", "mill", "moor", "orchard", "otter", "pier", "plover",
-    "quarry", "quill", "reef", "ridge", "river", "saddle", "shoal", "spire", "summit", "tarn",
-    "terrace", "tide", "trail", "vale", "vault", "wharf", "wick", "windrow", "yard", "zephyr",
-)
-
-
-def codename(digest: bytes) -> str:
-    """A two-word codename from the first bytes of a digest: 60 x 60 = 3,600 names."""
-    a = int.from_bytes(digest[:4], "big") % len(_CODENAME_FIRST)
-    b = int.from_bytes(digest[4:8], "big") % len(_CODENAME_SECOND)
-    return f"{_CODENAME_FIRST[a]}-{_CODENAME_SECOND[b]}"
-
-
-def render_observation(obs: Observation, *, pending: list[str], demo_cost: float,
-                       first_in_session: bool, task_label: str | None = None, finish: bool = False,
-                       rules_note: str = "", preface: str = "") -> str:
+def render_observation(obs: LearnerObservation, *, pending: list[str], demo_cost: float,
+                       first_in_session: bool, finish: bool = False, rules_note: str = "", preface: str = "") -> str:
     """``preface`` is what a row puts before the instance in the first message of its conversation: nothing, but for
     the demo-cache floor's cached pairs (systems/bare.py, 28 Sep)."""
-    label = task_label or obs.task_id
     lines: list[str] = []
     if first_in_session:
         lines.append((RULES_FINISH if finish else RULES).replace("{demo_cost}", f"{demo_cost:g}"))
@@ -225,10 +153,10 @@ def render_observation(obs: Observation, *, pending: list[str], demo_cost: float
         lines.append(preface)
         lines.append("")
     fresh = obs.attempts_used == 0 and obs.demo_requests_used == 0
-    # The learner is told the task id and the instance's own counters, nothing about the
-    # stream: no position, no length, no phase, no exposure count (20 Sep). Whether it has
-    # met this task before is for its own memory to say, as for a worker in an office.
-    lines.append(f"{'New instance' if fresh else 'Same instance'}. Task id: {label}")
+    # The learner is told the task's name for the run and the instance's own counters, nothing
+    # about the stream: no position, no length, no phase, no exposure count (20 Sep). Whether it
+    # has met this task before is for its own memory to say, as for a worker in an office.
+    lines.append(f"{'New instance' if fresh else 'Same instance'}. Task id: {obs.task_id}")
     lines.append(f"Test input ({_shape(obs.input)}):")
     lines.append(render_grid(obs.input))
     lines.append(f"Wrong attempts used: {obs.attempts_used}/{obs.attempt_cap}. "

@@ -30,7 +30,7 @@ from continual_arc.env import (
     Action,
     DemosFeedback,
     GiveUp,
-    Observation,
+    LearnerObservation,
     RequestDemos,
     Submit,
     SubmitFeedback,
@@ -146,16 +146,16 @@ class BareDemoCacheLearner(BareModelLearner):
         self.cache_cap = cache_cap
         self.cache: dict[str, list] = {}
 
-    def instance_preface(self, obs: Observation, label: str) -> str:
+    def instance_preface(self, obs: LearnerObservation) -> str:
         pairs = self.cache.get(obs.task_id, [])
         if not pairs:
             return ""
         shown = "\n\n".join(f"Earlier pair {k} input ({_shape(p.input)}):\n{render_grid(p.input)}\n"
                              f"Earlier pair {k} output ({_shape(p.output)}):\n{render_grid(p.output)}"
                              for k, p in enumerate(pairs, 1))
-        return f"Demonstration pairs of task {label} that you received before, shown again at no cost:\n\n{shown}"
+        return f"Demonstration pairs of task {obs.task_id} that you received before, shown again at no cost:\n\n{shown}"
 
-    def observe(self, obs: Observation, action: Any, feedback: Any) -> None:
+    def observe(self, obs: LearnerObservation, action: Any, feedback: Any) -> None:
         if isinstance(feedback, DemosFeedback) and not feedback.refused and feedback.pairs:
             kept = self.cache.setdefault(obs.task_id, [])
             kept.extend(feedback.pairs[: max(self.cache_cap - len(kept), 0)])
@@ -231,17 +231,17 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
 
     # -- what the model is shown ------------------------------------------------
 
-    def instance_preface(self, obs: Observation, label: str) -> str:
+    def instance_preface(self, obs: LearnerObservation) -> str:
         parts = []
         if self._earlier:
             shown = "\n\n".join(f"Earlier pair {k} input ({_shape(p.input)}):\n{render_grid(p.input)}\n"
                                  f"Earlier pair {k} output ({_shape(p.output)}):\n{render_grid(p.output)}"
                                  for k, p in enumerate(self._earlier, 1))
-            parts.append(f"Demonstration pairs of task {label} that you received before, shown again at no cost:\n\n"
+            parts.append(f"Demonstration pairs of task {obs.task_id} that you received before, shown again at no cost:\n\n"
                          f"{shown}")
         if self._kept_run is not None:
             what, program = self._kept_run
-            parts.append(f"The program kept for task {label} from an earlier instance {what}:\n"
+            parts.append(f"The program kept for task {obs.task_id} from an earlier instance {what}:\n"
                          f"```python\n{program.rstrip()}\n```")
         return "\n\n".join(parts)
 
@@ -259,7 +259,7 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
                         f"{render_grid(got)}\nwhere the pair's output is\n{render_grid(pair.output)}")
         return None
 
-    def _interpret(self, obs: Observation, reply: str) -> tuple[str, Any]:
+    def _interpret(self, obs: LearnerObservation, reply: str) -> tuple[str, Any]:
         """('action', an action), ('check', a failed check to send back) or ('unusable', why)."""
         program = extract_program(reply)
         rest = _PY_FENCE.sub("", reply) if program else reply
@@ -299,7 +299,7 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
 
     # -- the loop ---------------------------------------------------------------
 
-    def act(self, obs: Observation) -> Action:
+    def act(self, obs: LearnerObservation) -> Action:
         if obs.is_fresh and self._session_pending:
             self._session_pending = False
             if self.stateless:
@@ -328,17 +328,16 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
                     return Submit(got)
                 self._kept_run = (f"failed on this test input ({error}), so nothing was submitted", program)
         pending = self.transcript.take()
-        label = self.task_label(obs.task_id)
 
         def observation(fresh: bool) -> str:
-            preface = self.instance_preface(obs, label) if fresh else ""
+            preface = self.instance_preface(obs) if fresh else ""
             return grid_protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost,
-                                                    first_in_session=fresh, task_label=label, finish=True,
+                                                    first_in_session=fresh, finish=True,
                                                     rules_note=PROGRAM_NOTE_STATELESS if self.stateless else PROGRAM_NOTE,
                                                     preface=preface)
 
         try:
-            reply = self._ask_resilient(observation, kind="observation", step=obs.step, task=label)
+            reply = self._ask_resilient(observation, kind="observation", step=obs.step, task=obs.task_id)
             unusable = 0
             while True:
                 kind, value = self._interpret(obs, reply)
@@ -360,14 +359,14 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
                     return observation(True) + "\n\n" + message if fresh else message
 
                 reply = self._ask_resilient(follow_up, reprompt=True, kind="check" if kind == "check" else "reprompt",
-                                            step=obs.step, task=label)
+                                            step=obs.step, task=obs.task_id)
         except SystemUnavailable as error:
             self.stats["forced_give_ups"] += 1
             self.note(f"step {obs.step}: system unavailable after {self.max_restarts} restart(s) "
                       f"({error}); this action is a give-up")
         return GiveUp()
 
-    def observe(self, obs: Observation, action: Any, feedback: Any) -> None:
+    def observe(self, obs: LearnerObservation, action: Any, feedback: Any) -> None:
         if isinstance(feedback, DemosFeedback) and not feedback.refused and feedback.pairs:
             self._bought.extend(feedback.pairs)
         if self._kept_pending and isinstance(feedback, SubmitFeedback):

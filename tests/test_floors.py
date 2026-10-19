@@ -80,7 +80,7 @@ def world():
 
 
 def make(cls, oracle, **kw):
-    return cls(model="fake", chat=ChatClient("fake", send=oracle), alias_tasks=True, **kw)
+    return cls(model="fake", chat=ChatClient("fake", send=oracle), **kw)
 
 
 def test_extract_grid_variants():

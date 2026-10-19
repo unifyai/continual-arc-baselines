@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from continual_arc.env import GiveUp, Observation, Submit
+from continual_arc.env import GiveUp, LearnerObservation, Submit
 
 from continual_arc_baselines.systems.acp import ACPSystemLearner
 from continual_arc_baselines.systems.base import SystemUnavailable
@@ -35,9 +35,8 @@ class FakeSystem(ACPSystemLearner):
 
 
 def obs(step=0):
-    return Observation(step=step, n_steps=3, task_id="t1", phase="stream", input=[[0]],
-                       exposure_index=0, attempts_used=0, demo_requests_used=0, attempt_cap=8,
-                       demo_cap=8, reset_before=False)
+    return LearnerObservation(step=step, task_id="t1", input=[[0]], attempts_used=0, demo_requests_used=0,
+                              attempt_cap=8, demo_cap=8)
 
 
 @pytest.fixture
@@ -86,13 +85,12 @@ def test_hard_timeout_is_a_budget_hit_not_a_restart(tmp_path):
     """A prompt that overruns its budget is cancelled and re-prompted with the budget notice,
     as prime-agent's is; the system is working, so it is not restarted."""
     s = FakeSystem(model="m", sandbox="none", timeout_s=1.0, idle_timeout_s=60, startup_timeout_s=60,
-                   max_restarts=1, alias_tasks=False)
+                   max_restarts=1)
     s.attach(tmp_path / "system", {})
     try:
         s.reply = json.dumps({"action": "request_demos"})
-        action = s.act(Observation(step=0, n_steps=1, task_id="SLEEP", phase="stream", input=[[0]],
-                                   exposure_index=0, attempts_used=0, demo_requests_used=0,
-                                   attempt_cap=8, demo_cap=8, reset_before=False))
+        action = s.act(LearnerObservation(step=0, task_id="SLEEP", input=[[0]], attempts_used=0, demo_requests_used=0,
+                                          attempt_cap=8, demo_cap=8))
         assert s.stats["budget_hits"] == 1 and s.stats["restarts"] == 0 and s.stats["forced_give_ups"] == 0
         assert not isinstance(action, GiveUp)
     finally:

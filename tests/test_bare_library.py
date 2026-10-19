@@ -2,7 +2,13 @@
 submission, checked at no cost on the task's pairs, kept, and run first when the task returns. The model is scripted
 (``ask`` answers from a list); programs run unsandboxed here, as in test_floors.py."""
 
-from continual_arc.env import DemosFeedback, Observation, RequestDemos, Submit, SubmitFeedback
+from continual_arc.env import (
+    DemosFeedback,
+    LearnerObservation,
+    RequestDemos,
+    Submit,
+    SubmitFeedback,
+)
 from continual_arc.grids import Grid
 from continual_arc.tasks import Pair
 
@@ -33,9 +39,8 @@ class Scripted(BareProgramLibraryLearner):
 
 
 def obs(step, task="t1", grid=((1, 2),), demos=0, attempts=0):
-    return Observation(step=step, n_steps=9, task_id=task, phase="stream", input=[list(r) for r in grid],
-                       exposure_index=0, attempts_used=attempts, demo_requests_used=demos, attempt_cap=8, demo_cap=8,
-                       reset_before=False)
+    return LearnerObservation(step=step, task_id=task, input=[list(r) for r in grid], attempts_used=attempts,
+                              demo_requests_used=demos, attempt_cap=8, demo_cap=8)
 
 
 def test_a_program_is_checked_free_kept_and_run_first_when_the_task_returns(tmp_path):

@@ -132,8 +132,7 @@ def render_feedback(action: Any, feedback: Any, compact: bool = False) -> str:
 
 
 def render_observation(obs: Any, *, pending: list[str], first_in_session: bool,
-                       task_label: str | None = None, finish: bool = False, rules_note: str = "", **_: Any) -> str:
-    label = task_label or obs.task_id
+                       finish: bool = False, rules_note: str = "", **_: Any) -> str:
     lines: list[str] = []
     if first_in_session:
         lines.append((RULES_FINISH if finish else RULES).replace("{max_batch}", str(MAX_BATCH)))
@@ -146,7 +145,7 @@ def render_observation(obs: Any, *, pending: list[str], first_in_session: bool,
         lines.append("")
     fresh = obs.is_fresh
     # Game id and level (the game shows its level), nothing about the stream (20 Sep).
-    lines.append(f"{'New instance' if fresh else 'Same instance'}. Game id: {label}, level {obs.level + 1} of {obs.n_levels}.")
+    lines.append(f"{'New instance' if fresh else 'Same instance'}. Game id: {obs.task_id}, level {obs.level + 1} of {obs.n_levels}.")
     lines.append(f"Available actions: {', '.join(str(a) for a in obs.available_actions)}. "
                  f"Actions used: {obs.actions_used + obs.resets_used}/{obs.action_cap} "
                  f"(human baseline for this level: {obs.baseline_actions}). {_state_line(obs.state)}")

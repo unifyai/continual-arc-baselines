@@ -22,6 +22,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from continual_arc.aliases import ALIAS_STYLES
+
 from continual_arc_baselines import secrets
 
 
@@ -57,7 +59,7 @@ def source_digest() -> str:
 
 
 def run_parameters(*, learner, learner_spec, learner_kwargs, schedule, config_name, mode,
-                   env_config, proxy_settings) -> dict:
+                   env_config, proxy_settings, alias_style) -> dict:
     """Everything worth recording about a run, in two layers.
 
     The workbench keeps the whole dict in local evidence but exports to MLflow
@@ -92,6 +94,7 @@ def run_parameters(*, learner, learner_spec, learner_kwargs, schedule, config_na
         # full detail, local evidence only
         "learner_kwargs": learner_kwargs,
         "system": system,
+        "alias_style": alias_style,
         "schedule": schedule.name,
         "n_slots": len(schedule),
         "env_config": env_config.to_json(),
@@ -174,6 +177,7 @@ def cmd_run(args) -> int:
     params = run_parameters(
         learner=learner, learner_spec=args.learner, learner_kwargs=kwargs, schedule=schedule,
         config_name=args.config, mode=args.mode, env_config=config, proxy_settings=proxy_settings,
+        alias_style=args.alias_style,
     )
     evidence.parameters(params)
     hold = out_dir / "pilot-hold.json"
@@ -205,7 +209,7 @@ def cmd_run(args) -> int:
         result = run(
             TrackedLearner(learner, tracker, stop_after=args.stop_after, done=len(prior)), schedule, config=config,
             out_dir=out_dir, registry=registry, log_events=args.events, progress=progress, learner_name=name,
-            env=build_env(schedule, config, registry), resume=args.resume,
+            env=build_env(schedule, config, registry), resume=args.resume, alias_style=args.alias_style,
         )
     except PilotStop as stop:
         # stopped by --stop-after: held, and continued by a launch with --resume and without --stop-after
@@ -248,6 +252,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--out", help="run directory (default: <attempt dir>/continual-arc)")
     r.add_argument("--name", help="learner display name")
     r.add_argument("--events", action="store_true", help="also log every action and feedback")
+    r.add_argument("--alias-style", choices=ALIAS_STYLES, default="hex",
+                   help="the names the system sees tasks under, drawn for the run by the runner: task-3f2a9c1e (hex) "
+                        "or a codename such as amber-heron (names)")
     r.add_argument("--resume", action="store_true",
                    help="continue an interrupted run in --out: finished instances are kept, the interrupted one is "
                         "replayed, and the system's persisted state (its attempt directory) is reused")

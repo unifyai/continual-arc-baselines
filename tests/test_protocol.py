@@ -1,7 +1,7 @@
 import json
 
 import pytest
-from continual_arc.env import GiveUp, Observation, RequestDemos, Submit, SubmitFeedback
+from continual_arc.env import GiveUp, LearnerObservation, RequestDemos, Submit, SubmitFeedback
 from continual_arc.tasks import Pair
 
 from continual_arc_baselines.systems.protocol import (
@@ -16,10 +16,9 @@ from continual_arc_baselines.systems.protocol import (
 
 
 def obs(**over):
-    base = dict(step=3, n_steps=10, task_id="fake001", phase="stream", input=[[1, 2], [3, 4]],
-                exposure_index=1, attempts_used=0, demo_requests_used=0, attempt_cap=8, demo_cap=8,
-                reset_before=False)
-    return Observation(**{**base, **over})
+    base = dict(step=3, task_id="task-0f1a2b3c", input=[[1, 2], [3, 4]], attempts_used=0, demo_requests_used=0,
+                attempt_cap=8, demo_cap=8)
+    return LearnerObservation(**{**base, **over})
 
 
 def test_parse_finds_last_action_anywhere():
@@ -45,7 +44,7 @@ def test_parse_errors():
 
 def test_render_first_message_has_rules_then_instance():
     text = render_observation(obs(), pending=[], demo_cost=1.0, first_in_session=True)
-    assert "Continual-ARC" in text and "Task id: fake001" in text
+    assert "Continual-ARC" in text and "Task id: task-0f1a2b3c" in text
     assert "1 2\n3 4" in text and "New instance" in text
     later = render_observation(obs(attempts_used=1), pending=["Your submission was INCORRECT."],
                                demo_cost=1.0, first_in_session=False)
@@ -166,28 +165,6 @@ def test_parse_does_not_read_prose_as_an_action():
     for req in ("request_demos", "Request demos.", "I would like to request demos", "please show more examples",
                 "get demonstrations", "REQUEST_DEMONSTRATIONS"):
         assert parse_action("Some reasoning first.\n" + req) == RequestDemos(), req
-
-
-def test_task_aliases_names_style_is_stable_unique_and_ruleless():
-    from continual_arc_baselines.systems.protocol import (
-        _CODENAME_FIRST,
-        _CODENAME_SECOND,
-        TaskAliases,
-        codename,
-    )
-    a = TaskAliases(salt="s", style="names")
-    b = TaskAliases(salt="s", style="names")
-    ids = [f"{i:08x}" for i in range(200)]
-    names = [a.alias(t) for t in ids]
-    assert names == [b.alias(t) for t in ids]                 # the same salt gives the same names
-    assert len(set(names)) == 200                             # unique within a run
-    assert all(n.split("-")[0] in _CODENAME_FIRST and n.split("-")[1] in _CODENAME_SECOND for n in names)
-    assert TaskAliases(salt="t", style="names").alias(ids[0]) != names[0]   # salted per run
-    assert TaskAliases(salt="s").alias(ids[0]).startswith("task-")          # hex stays the default
-    assert codename(bytes(8)) == f"{_CODENAME_FIRST[0]}-{_CODENAME_SECOND[0]}"
-    import pytest
-    with pytest.raises(ValueError):
-        TaskAliases(style="poems")
 
 
 def test_demonstrations_are_numbered_across_requests_and_padding_says_what_it_is():

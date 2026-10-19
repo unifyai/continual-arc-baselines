@@ -1,4 +1,10 @@
-from continual_arc.arc3.env import Act, ActFeedback, Arc3Observation, ResetFeedback, ResetLevel
+from continual_arc.arc3.env import (
+    Act,
+    ActFeedback,
+    Arc3LearnerObservation,
+    ResetFeedback,
+    ResetLevel,
+)
 
 from continual_arc_baselines.systems import arc3_protocol as p
 from continual_arc_baselines.systems.base import protocol_for
@@ -7,16 +13,15 @@ FRAME = [[(r + c) % 16 for c in range(64)] for r in range(64)]
 
 
 def obs(**over):
-    base = dict(step=3, n_steps=9, task_id="ls20", phase="stream", level=1, n_levels=7, exposure_index=1,
-                frames=[FRAME], state="NOT_FINISHED", available_actions=[1, 2, 3, 4], actions_used=0,
-                resets_used=0, action_cap=110, baseline_actions=22, reset_before=False)
+    base = dict(step=3, task_id="game-ab12", level=1, n_levels=7, frames=[FRAME], state="NOT_FINISHED",
+                available_actions=[1, 2, 3, 4], actions_used=0, resets_used=0, action_cap=110, baseline_actions=22)
     base.update(over)
-    return Arc3Observation(**base)
+    return Arc3LearnerObservation(**base)
 
 
 def test_protocol_selection_and_rendering():
     assert protocol_for(obs()) is p
-    text = p.render_observation(obs(), pending=[], first_in_session=True, task_label="game-ab12")
+    text = p.render_observation(obs(), pending=[], first_in_session=True)
     assert text.startswith(p.RULES.replace("{max_batch}", str(p.MAX_BATCH)))
     assert "Game id: game-ab12, level 2 of 7" in text
     assert "0123456789abcdef" in text  # one hex digit per cell
@@ -66,7 +71,7 @@ def test_sequence_is_fed_without_prompting_and_stops_at_game_over():
         replies = ['{"action": "act", "ids": [1, 2, 3, 4]}', '{"action": "reset"}']
 
         def __init__(self):
-            super().__init__(alias_tasks=False)
+            super().__init__()
             self.asked = 0
 
         def start(self): pass

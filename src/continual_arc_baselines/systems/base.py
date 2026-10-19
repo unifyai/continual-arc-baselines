@@ -6,13 +6,14 @@ parsing actions, re-prompting on protocol violations, restarting a system that
 stops answering, and wiping state on ``reset``. It counts nothing; usage comes
 from the proxy.
 
-Two policies live here because they apply to every system:
+A system sees what the runner shows every learner: the instance alone, its task
+under the run's name (``task-<hex>``, :mod:`continual_arc.aliases`), which the
+adapter passes on as it is.
 
-* **Task ids are aliased.** Systems see ``task-<hex>`` names that are stable
-  within a run and meaningless outside it (see :class:`TaskAliases`).
-* **A system failure costs one action, not the run.** If the system cannot be
-  brought back after ``max_restarts`` restarts, the action becomes a give-up,
-  counted in ``system_forced_give_ups``, and the run continues.
+One policy lives here because it applies to every system: **a system failure
+costs one action, not the run.** If the system cannot be brought back after
+``max_restarts`` restarts, the action becomes a give-up, counted in
+``system_forced_give_ups``, and the run continues.
 
 Every turn the adapter logs (``turns.jsonl``) carries how it ended when the adapter knows it
 (``outcome``: the harness's stop reason and its own error message), and a launch since 28 Sep
@@ -30,11 +31,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from continual_arc.env import Action, Feedback, GiveUp, Observation
+from continual_arc.env import Action, Feedback, GiveUp, LearnerObservation
 from continual_arc.learner import BaseLearner
 
 from continual_arc_baselines.systems import protocol as grid_protocol
-from continual_arc_baselines.systems.protocol import TaskAliases, Transcript
+from continual_arc_baselines.systems.protocol import Transcript
 from continual_arc_baselines.tracking import instance_ended
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ def protocol_for(obs: Any):
     frames and game actions for Continual-ARC-3. Both expose
     ``render_observation``, ``render_feedback``, ``parse_action``, ``ParseError``
     and ``REPROMPT``."""
-    if type(obs).__name__ == "Arc3Observation":
+    if type(obs).__name__ == "Arc3LearnerObservation":
         from continual_arc_baselines.systems import arc3_protocol
 
         return arc3_protocol
@@ -78,9 +79,8 @@ class SystemLearner(BaseLearner):
     storage_note = ""
 
     def __init__(self, *, max_reprompts: int = 2, refine_every: int = 0, demo_cost: float = 1.0,
-                 max_restarts: int = 2, alias_tasks: bool = True, session_per_instance: bool = True,
-                 instance_gap_s: float = 0.0, stateless: bool = False, alias_style: str = "hex",
-                 storage_turn: bool = False, end: str = "", empty_reply: str = "restart",
+                 max_restarts: int = 2, session_per_instance: bool = True, instance_gap_s: float = 0.0,
+                 stateless: bool = False, storage_turn: bool = False, end: str = "", empty_reply: str = "restart",
                  archive_wipes: bool = False, ask_to_store: bool = False, program_library: bool = False):
         self.max_reprompts = max_reprompts
         self.refine_every = refine_every
@@ -145,7 +145,6 @@ class SystemLearner(BaseLearner):
         self._session_pending = False
         self.demo_cost = demo_cost
         self.max_restarts = max_restarts
-        self.aliases: TaskAliases | None = TaskAliases(style=alias_style) if alias_tasks else None
         self.workdir: Path = Path(".workbench") / "system"
         self.environ: dict[str, str] = dict(os.environ)
         self.tracker: Any = None
@@ -183,7 +182,7 @@ class SystemLearner(BaseLearner):
         """
         raise NotImplementedError
 
-    def instance_preface(self, obs: Observation, label: str) -> str:
+    def instance_preface(self, obs: LearnerObservation) -> str:
         """Text put before the instance in the first message of its conversation (protocol.render_observation's
         ``preface``): nothing for a harness row; the demo-cache floor's cached pairs (systems/bare.py, 28 Sep)."""
         return ""
@@ -210,10 +209,8 @@ class SystemLearner(BaseLearner):
 
     def describe(self) -> dict[str, Any]:
         """Identity for the run record: system name, version, model, settings."""
-        return {"system": self.name, "task_aliases": self.aliases is not None,
-                "alias_style": self.aliases.style if self.aliases else None,
-                "max_restarts": self.max_restarts, "session_per_instance": self.session_per_instance,
-                "instance_gap_s": self.instance_gap_s, "stateless": self.stateless, "storage_turn": self.storage_turn,
+        return {"system": self.name, "max_restarts": self.max_restarts,
+                "session_per_instance": self.session_per_instance, "instance_gap_s": self.instance_gap_s, "stateless": self.stateless, "storage_turn": self.storage_turn,
                 "end": self.end, "empty_reply": self.empty_reply, "archive_wipes": self.archive_wipes,
                 "ask_to_store": self.ask_to_store, "program_library": self.program_library}
 
@@ -275,9 +272,6 @@ class SystemLearner(BaseLearner):
     def note(self, message: str) -> None:
         """Diagnostics hook; systems may override to keep a log with the evidence."""
         log.warning(message)
-
-    def task_label(self, task_id: str) -> str:
-        return self.aliases.alias(task_id) if self.aliases else task_id
 
     def log_turn(self, kind: str, message: str, reply: str, **meta: Any) -> None:
         """The protocol conversation, one line per exchange, in ``turns.jsonl`` beside the
@@ -342,7 +336,7 @@ class SystemLearner(BaseLearner):
                 self.note(f"system unavailable ({error}); restart {attempt + 1}/{self.max_restarts}")
         raise SystemUnavailable("unreachable")
 
-    def act(self, obs: Observation) -> Action:
+    def act(self, obs: LearnerObservation) -> Action:
         if self._queue:
             # The rest of a sequence the system sent last turn. A new instance
             # (fresh observation) or a changed game state has already emptied it.
@@ -366,7 +360,6 @@ class SystemLearner(BaseLearner):
                     self.note(f"step {obs.step}: new session failed ({error}); restarting the system")
                     self.close()
         pending = self.transcript.take()
-        label = self.task_label(obs.task_id)
         protocol = protocol_for(obs)
         finish = self.end == "finish"
         note = self.storage_note
@@ -376,13 +369,12 @@ class SystemLearner(BaseLearner):
         extra = {"finish": True, "rules_note": note} if finish else {}
 
         def observation(fresh: bool) -> str:
-            preface = self.instance_preface(obs, label) if fresh else ""
-            return protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost,
-                                               first_in_session=fresh, task_label=label,
+            preface = self.instance_preface(obs) if fresh else ""
+            return protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost, first_in_session=fresh,
                                                **({**extra, "preface": preface} if preface else extra))
 
         try:
-            reply = self._ask_resilient(observation, kind="observation", step=obs.step, task=label)
+            reply = self._ask_resilient(observation, kind="observation", step=obs.step, task=obs.task_id)
             for attempt in range(self.max_reprompts + 1):
                 try:
                     parsed = protocol.parse_action(reply, finish=True) if finish else protocol.parse_action(reply)
@@ -408,14 +400,14 @@ class SystemLearner(BaseLearner):
                     def follow_up(fresh: bool, hint: str = hint) -> str:
                         return observation(True) + "\n\n" + hint if fresh else hint
 
-                    reply = self._ask_resilient(follow_up, reprompt=True, step=obs.step, task=label)
+                    reply = self._ask_resilient(follow_up, reprompt=True, step=obs.step, task=obs.task_id)
         except SystemUnavailable as error:
             self.stats["forced_give_ups"] += 1
             self.note(f"step {obs.step}: system unavailable after {self.max_restarts} restart(s) "
                       f"({error}); this action is a give-up")
         return GiveUp()
 
-    def observe(self, obs: Observation, action: Action, feedback: Feedback) -> None:
+    def observe(self, obs: LearnerObservation, action: Action, feedback: Feedback) -> None:
         protocol = protocol_for(obs)
         ended = instance_ended(feedback)  # the rule by which TrackedLearner waits for the instance's calls
         # A sequence stops early when the instance ends or the game needs a decision
@@ -455,7 +447,7 @@ class SystemLearner(BaseLearner):
         instances; never for a stateless row, whose state could not survive it)."""
         return bool(self.refine_every) and self._instances_done % self.refine_every == 0 and not self.stateless
 
-    def _close_instance(self, obs: Observation) -> None:
+    def _close_instance(self, obs: LearnerObservation) -> None:
         """Deliver the verdict on the instance's final submission to the system, in the same
         conversation, before any storage step runs and before the conversation is closed. Without
         this the verdict sat in the transcript until the next instance's first message, in a new
@@ -481,7 +473,7 @@ class SystemLearner(BaseLearner):
             self.last_turn_outcome = {}
             reply = self.ask(message)   # the reply is not read
             self.log_turn("storage" if storage else "closing", message, reply,
-                          seconds=round(time.monotonic() - started, 2), step=obs.step, task=self.task_label(obs.task_id))
+                          seconds=round(time.monotonic() - started, 2), step=obs.step, task=obs.task_id)
             self.stats["storage_turns" if storage else "closings"] += 1
         except SystemUnavailable as error:
             # a system that cannot take the closing is restarted for the next instance; the
@@ -490,13 +482,12 @@ class SystemLearner(BaseLearner):
             self.close()
             self.stats["restarts"] += 1
 
-    def _finish_instance(self, obs: Observation, pending: list[str]) -> None:
+    def _finish_instance(self, obs: LearnerObservation, pending: list[str]) -> None:
         """The end of an instance under the finish protocol: the verdict alone, in the same conversation, and the
         harness does what it wants (store, or nothing) until it replies with finish. Any other action is refused with
         the fact that the instance is over (a submission cannot change the scored record); after ``max_reprompts``
         such replies, or when the harness spends its turn's budget, the instance ends here as if it had finished."""
         protocol = protocol_for(obs)
-        label = self.task_label(obs.task_id)
         message = "\n".join(pending) if pending else "The instance is over."
         ask = getattr(protocol, "ASK_TO_STORE", None)
         if self.ask_to_store and not self.stateless and ask:
@@ -504,7 +495,7 @@ class SystemLearner(BaseLearner):
             self.stats["store_asks"] += 1
         library_ask = getattr(protocol, "PROGRAM_LIBRARY_ASK", None)
         if self.program_library and library_ask:
-            message += "\n\n" + library_ask.format(path=f"{self.programs_dir()}/{label}.py")
+            message += "\n\n" + library_ask.format(path=f"{self.programs_dir()}/{obs.task_id}.py")
             self.stats["library_asks"] += 1
         try:
             for attempt in range(self.max_reprompts + 1):
@@ -512,7 +503,7 @@ class SystemLearner(BaseLearner):
                 self.last_turn_outcome = {}
                 reply = self.ask(message, reprompt=attempt > 0)
                 self.log_turn("verdict" if attempt == 0 else "finish_reprompt", message, reply,
-                              seconds=round(time.monotonic() - started, 2), step=obs.step, task=label)
+                              seconds=round(time.monotonic() - started, 2), step=obs.step, task=obs.task_id)
                 if self.last_turn_cut:
                     # the harness used its whole turn after the verdict: the instance ends here, with no notice
                     self.stats["finish_budget_hits"] += 1

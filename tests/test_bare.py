@@ -3,7 +3,13 @@ message through the proxy, the action parsed as a harness's is, and no closing t
 
 import json
 
-from continual_arc.env import DemosFeedback, Observation, RequestDemos, Submit, SubmitFeedback
+from continual_arc.env import (
+    DemosFeedback,
+    LearnerObservation,
+    RequestDemos,
+    Submit,
+    SubmitFeedback,
+)
 
 from continual_arc_baselines.proxy import LLMProxy
 from continual_arc_baselines.systems.bare import BareModelLearner
@@ -12,9 +18,8 @@ from .fake_upstream import FakeUpstream
 
 
 def obs(step=0, demos=0, attempts=0, task="t1"):
-    return Observation(step=step, n_steps=2, task_id=task, phase="stream", input=[[0]], exposure_index=0,
-                       attempts_used=attempts, demo_requests_used=demos, attempt_cap=8, demo_cap=1,
-                       reset_before=False)
+    return LearnerObservation(step=step, task_id=task, input=[[0]], attempts_used=attempts, demo_requests_used=demos,
+                              attempt_cap=8, demo_cap=1)
 
 
 def test_the_bare_model_plays_the_protocol_in_one_conversation_per_instance(tmp_path):
@@ -103,6 +108,6 @@ def test_the_demo_cache_keeps_at_most_its_cap_and_is_wiped_with_the_state():
         cache.observe(o, RequestDemos(), DemosFeedback(pairs=[_pair(k, k)], refused=False, demo_requests_used=k + 1))
     cache.observe(o, RequestDemos(), DemosFeedback(pairs=[], refused=True, demo_requests_used=4))
     assert [p.input for p in cache.cache["t1"]] == [[[0]], [[1]]]
-    assert cache.instance_preface(obs(task="t2"), "task-x") == ""
+    assert cache.instance_preface(obs(task="t2")) == ""
     cache.wipe_state()
-    assert cache.cache == {} and cache.instance_preface(o, "task-x") == ""
+    assert cache.cache == {} and cache.instance_preface(o) == ""

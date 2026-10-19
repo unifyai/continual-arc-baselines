@@ -88,7 +88,7 @@ def test_workstreams_learns_and_is_measured_at_the_boundary(tmp_path, monkeypatc
                   if json.loads(line)["kind"] == "parameters")
     assert params["model"] == "vendor/model" and params["system"]["system_version"] == "fake-prime-agent 0.0.1"
     assert params["proxy"]["enabled"] and params["proxy"]["upstream_key_present"]
-    assert params["system"]["sandbox"] == "none" and params["system"]["task_aliases"] is True
+    assert params["system"]["sandbox"] == "none" and params["alias_style"] == "hex"
     # No resets in workstreams mode, one process for the whole run, and a fresh conversation for
     # every instance after the first.
     assert commands.read_text().count("new_session") == len(records) - 1
