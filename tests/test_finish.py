@@ -46,7 +46,7 @@ class Scripted(SystemLearner):
 
 
 def play(system, tmp_path):
-    source = FixedArcSource("evaluation", tasks=TASKS, dataset="arc2", own_pairs_only=True, name="own")
+    source = FixedArcSource("evaluation", tasks=TASKS, name="own")
     sched = stream_schedule(["f"], 1, seed=0, source=source.name, params=RANDOM, mode="random")
     env = ContinualArcEnv(sched, registry=TaskRegistry({source.name: source}), config=EnvConfig())
     system.attach(tmp_path / "system", {})

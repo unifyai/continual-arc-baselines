@@ -47,7 +47,7 @@ Python 3.12 or 3.13 and [uv](https://docs.astral.sh/uv/).
 git clone https://github.com/unifyai/continual-arc-baselines
 cd continual-arc-baselines
 uv sync                                                # installs the benchmark from github.com/unifyai/continual-arc
-uv run continual-arc data fetch --datasets arc1 arc2   # Re-ARC, ARC-AGI-1 and ARC-AGI-2 at pinned commits
+uv run continual-arc data fetch                        # Re-ARC and ARC-AGI-1 at pinned commits
 uv run pytest                                          # no network or keys needed
 ```
 
@@ -86,11 +86,11 @@ four-method interface that builds its client from `OPENAI_BASE_URL`.
 
 ## Reproduce the paper's runs
 
-`bash scripts/paper-grid.sh` launches every cell the paper reports: 254 runs on the two tracks, ARC-AGI-1 on GPT-6
-Luna at low, medium and high effort and ARC-AGI-2 at medium to max effort (the floors at low too). Each writes `runs/<track>/<cell>/`, under the name its record carries in the run
-records. Every cell is detached and long-lived,
-so launch a part at a time (`bash scripts/paper-grid.sh arc2`), and `DRY_RUN=1` shows each cell's command first. The
-paper's 254 runs made about 1,800 USD of model calls through OpenRouter, by the cost the proxy recorded on each
+`bash scripts/paper-grid.sh` launches every cell the paper reports: 198 runs on the ARC-AGI-1 track, GPT-6 Luna at
+low, medium and high effort. Each writes `runs/<track>/<cell>/`, under the name its record carries in the run records.
+Every cell is detached and long-lived, so launch a part at a time (`bash scripts/paper-grid.sh luna6-low`), and
+`DRY_RUN=1` shows each cell's command first. The paper's 198 runs made about 1,500 USD of model calls through
+OpenRouter, by the cost the proxy recorded on each
 instance. The models are sampled through provider APIs, so a rerun differs from the paper's by about the spread the
 paper reports.
 

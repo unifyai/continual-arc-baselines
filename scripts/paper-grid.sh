@@ -3,7 +3,7 @@
 # two floor cells). Each cell runs detached; the paper's grid ran on five 16-vCPU Linux machines, each family of cells
 # on a machine of its own, so launch a part at a time on a machine of this size.
 #
-#   bash scripts/paper-grid.sh [PATTERN]     only the lines matching PATTERN (grep -E), e.g. 'arc2' or 'acp .* hermes'
+#   bash scripts/paper-grid.sh [PATTERN]     only the lines matching PATTERN (grep -E), e.g. 'luna6-low' or 'acp .* hermes'
 #   DRY_RUN=1 bash scripts/paper-grid.sh     print every cell's run directory and command, launch nothing
 #
 # Each line of paper-grid.txt is the empty-reply rule its cells ran under (launch-cell.sh, EMPTY_REPLY), then

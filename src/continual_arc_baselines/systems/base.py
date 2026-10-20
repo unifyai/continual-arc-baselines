@@ -95,7 +95,7 @@ class SystemLearner(BaseLearner):
         # The ablation row HPL (29 Sep, Dan): a harness-driven program library. The finish protocol's rules gain row M's
         # method as a procedure (protocol.PROGRAM_LIBRARY_RULES: a program per task in a folder of the workspace, run
         # first when the task returns, checked on every pair before a submission, saved after the verdict) and the
-        # verdict is followed by the ask to save the task's program (PROGRAM_LIBRARY_ASK), on the grid tracks. A
+        # verdict is followed by the ask to save the task's program (PROGRAM_LIBRARY_ASK). A
         # stateless row gets the same messages, so that HPL0 would differ from HPL only in what survives.
         if program_library and (self.end != "finish" or ask_to_store):
             raise ValueError("program_library is an addition to the finish protocol, and not beside ask_to_store")

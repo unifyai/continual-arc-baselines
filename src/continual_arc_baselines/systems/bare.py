@@ -136,8 +136,7 @@ class BareDemoCacheLearner(BareModelLearner):
     """The demo-cache floor (28 Sep): the bare model, plus a cache of the demonstration pairs it has bought for each
     task, up to ``cache_cap`` a task (the per-instance demo cap). When a task returns, the first message of the
     instance shows its cached pairs again at no cost, before the instance; the model may still request more, and they
-    join the cache. Nothing else is kept: no answers, no verdicts, no conversation. On ARC-AGI-2 a cached pair is in the
-    frame of the instance that bought it, which the task's rule survives (continual_arc.tasks, per-task labels)."""
+    join the cache. Nothing else is kept: no answers, no verdicts, no conversation."""
 
     name = "bare-demo-cache"
 
