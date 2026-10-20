@@ -57,7 +57,8 @@ class SystemLearner(BaseLearner):
     Lifecycle: :meth:`attach` (where to keep state, what environment children
     inherit, the run's tracker) is called once by the CLI before the run;
     :meth:`start` lazily on the first action; :meth:`reset` stops, wipes and
-    lazily restarts; :meth:`stop` at the end. ``demo_cost`` is only for the
+    lazily restarts; :meth:`stop` at the end. ``demo_cost`` and ``max_cost`` (the
+    configuration's whole budget, what an unsolved instance costs) are only for the
     wording of the rules.
     """
 
@@ -67,7 +68,7 @@ class SystemLearner(BaseLearner):
     storage_note = ""
 
     def __init__(self, *, max_reprompts: int = 2, refine_every: int = 0, demo_cost: float = 1.0,
-                 max_restarts: int = 2, session_per_instance: bool = True, instance_gap_s: float = 0.0,
+                 max_cost: float = 16.0, max_restarts: int = 2, session_per_instance: bool = True, instance_gap_s: float = 0.0,
                  stateless: bool = False, storage_turn: bool = False, end: str = "", empty_reply: str = "restart",
                  archive_wipes: bool = False, ask_to_store: bool = False, program_library: bool = False):
         self.max_reprompts = max_reprompts
@@ -132,6 +133,7 @@ class SystemLearner(BaseLearner):
         self.instance_gap_s = instance_gap_s
         self._session_pending = False
         self.demo_cost = demo_cost
+        self.max_cost = max_cost
         self.max_restarts = max_restarts
         self.workdir: Path = Path(".workbench") / "system"
         self.environ: dict[str, str] = dict(os.environ)
@@ -347,7 +349,8 @@ class SystemLearner(BaseLearner):
 
         def observation(fresh: bool) -> str:
             preface = self.instance_preface(obs) if fresh else ""
-            return protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost, first_in_session=fresh,
+            return protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost, max_cost=self.max_cost,
+                                               first_in_session=fresh,
                                                **({**extra, "preface": preface} if preface else extra))
 
         try:

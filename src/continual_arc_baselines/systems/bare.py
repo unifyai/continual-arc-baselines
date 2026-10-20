@@ -331,7 +331,7 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
         def observation(fresh: bool) -> str:
             preface = self.instance_preface(obs) if fresh else ""
             return protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost,
-                                               first_in_session=fresh, finish=True,
+                                               max_cost=self.max_cost, first_in_session=fresh, finish=True,
                                                rules_note=PROGRAM_NOTE_STATELESS if self.stateless else PROGRAM_NOTE,
                                                preface=preface)
 

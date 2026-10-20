@@ -41,13 +41,14 @@ Each demo request returns one more input-output pair of the task, up to the demo
 with the input. A pair marked as a transformed copy shows the task's rule under a different
 rotation, reflection or recolouring from the test input's.
 
-Scoring: every wrong submission costs 1 and every demo request costs {demo_cost};
-an instance ends when a submission is correct or when the attempt cap is reached,
-and reaching the cap is charged the full cap. Feedback on a submission is only
+Scoring: an instance you solve costs 1 for each wrong submission and {demo_cost} for
+each demo request. An instance ends when a submission is correct or when the attempt
+cap is reached, and one that ends unsolved costs the whole budget, {max_cost}, however
+many submissions and demo requests it used. Feedback on a submission is only
 correct/incorrect. There is no way to abandon an instance and nothing is shared
 between instances: each is scored on its own. Lower cost is better, so prefer
 remembering a task's rule over re-requesting demos, and prefer requesting demos
-over guessing blindly; a wrong submission always costs less than the cap.
+over guessing blindly; solving at any cost is cheaper than not solving.
 """
 
 
@@ -71,12 +72,20 @@ Grids are lists of rows; cells are integers 0-9; dimensions are 1-30.
 Each demo request returns one more input-output pair of the task, up to the demo cap shown
 with the input.
 
-Scoring: every wrong submission costs 1 and every demo request costs {demo_cost}. An
-instance is over when a submission is correct or when the attempt cap is reached, and
-reaching the cap is charged the full cap. Feedback on a submission is only
+Scoring: an instance you solve costs 1 for each wrong submission and {demo_cost} for
+each demo request. An instance is over when a submission is correct or when the attempt
+cap is reached, and one that ends unsolved costs the whole budget, {max_cost}, however
+many submissions and demo requests it used. Feedback on a submission is only
 correct/incorrect. There is no way to abandon an instance, and finish is refused until
 the instance is over. Each instance is scored on its own, and lower cost is better.
 """
+
+
+
+def rules(finish: bool, demo_cost: float, max_cost: float) -> str:
+    """The rules a learner reads at the start of a conversation (``RULES_FINISH`` under the finish protocol), with the
+    configuration's demo cost and whole budget filled in."""
+    return (RULES_FINISH if finish else RULES).replace("{demo_cost}", f"{demo_cost:g}").replace("{max_cost}", f"{max_cost:g}")
 
 
 class Finish:
@@ -131,17 +140,17 @@ def render_feedback(action: Action, feedback: Feedback) -> str:
         return (f"Demos received (request {feedback.demo_requests_used}):\n\n"
                 f"{render_pairs(feedback.pairs, start=max(1, start))}")
     if isinstance(feedback, GiveUpFeedback):
-        return f"You gave up. Charged {feedback.charged:g} for the remaining attempts."
+        return f"You gave up. Charged {feedback.charged:g}, the rest of the instance's budget."
     return f"Feedback: {feedback!r}"
 
 
-def render_observation(obs: LearnerObservation, *, pending: list[str], demo_cost: float,
+def render_observation(obs: LearnerObservation, *, pending: list[str], demo_cost: float, max_cost: float,
                        first_in_session: bool, finish: bool = False, rules_note: str = "", preface: str = "") -> str:
     """``preface`` is what a row puts before the instance in the first message of its conversation: nothing, but for
     the demo-cache floor's cached pairs (systems/bare.py, 28 Sep)."""
     lines: list[str] = []
     if first_in_session:
-        lines.append((RULES_FINISH if finish else RULES).replace("{demo_cost}", f"{demo_cost:g}"))
+        lines.append(rules(finish, demo_cost, max_cost))
         if finish and rules_note:
             lines.append(rules_note)
         lines.append("")

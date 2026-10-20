@@ -43,11 +43,12 @@ def test_parse_errors():
 
 
 def test_render_first_message_has_rules_then_instance():
-    text = render_observation(obs(), pending=[], demo_cost=1.0, first_in_session=True)
+    text = render_observation(obs(), pending=[], demo_cost=1.0, max_cost=16.0, first_in_session=True)
     assert "Continual-ARC" in text and "Task id: task-0f1a2b3c" in text
+    assert "one that ends unsolved costs the whole budget, 16," in text
     assert "1 2\n3 4" in text and "New instance" in text
     later = render_observation(obs(attempts_used=1), pending=["Your submission was INCORRECT."],
-                               demo_cost=1.0, first_in_session=False)
+                               demo_cost=1.0, max_cost=16.0, first_in_session=False)
     assert "Continual-ARC" not in later and "Same instance" in later
     assert "Feedback since your last action" in later
 
