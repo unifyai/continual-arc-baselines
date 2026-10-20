@@ -360,6 +360,7 @@ def test_sandbox_none_must_be_explicit(tmp_path, monkeypatch):
     from continual_arc_baselines.systems.sandbox import SandboxUnavailable, resolve_backend
 
     monkeypatch.setattr("continual_arc_baselines.systems.sandbox.platform.system", lambda: "Linux")
+    monkeypatch.setattr("continual_arc_baselines.systems.sandbox.shutil.which", lambda name: None)  # a Linux host without bubblewrap
     with pytest.raises(SandboxUnavailable):
         resolve_backend("auto")
     assert resolve_backend("none") == "none"
