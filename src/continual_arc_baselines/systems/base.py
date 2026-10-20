@@ -34,7 +34,7 @@ from typing import Any
 from continual_arc.env import Action, Feedback, GiveUp, LearnerObservation
 from continual_arc.learner import BaseLearner
 
-from continual_arc_baselines.systems import protocol as grid_protocol
+from continual_arc_baselines.systems import protocol
 from continual_arc_baselines.systems.protocol import Transcript
 from continual_arc_baselines.tracking import instance_ended
 
@@ -49,18 +49,6 @@ EMPTY_REPLY_MODES = ("restart", "reprompt")
 
 class SystemUnavailable(RuntimeError):
     """The system process died or stopped answering."""
-
-
-def protocol_for(obs: Any):
-    """The text protocol module for an observation: grids for Continual-ARC,
-    frames and game actions for Continual-ARC-3. Both expose
-    ``render_observation``, ``render_feedback``, ``parse_action``, ``ParseError``
-    and ``REPROMPT``."""
-    if type(obs).__name__ == "Arc3LearnerObservation":
-        from continual_arc_baselines.systems import arc3_protocol
-
-        return arc3_protocol
-    return grid_protocol
 
 
 class SystemLearner(BaseLearner):
@@ -99,7 +87,7 @@ class SystemLearner(BaseLearner):
             raise ValueError(f"end must be one of {END_MODES}, got {end!r}")
         self.storage_turn = self.end == "storage"
         # The ablation row HA (29 Sep, Dan): the finish protocol with one change, an ask to save liberally after the
-        # verdict (protocol.ASK_TO_STORE, on the grid tracks), so that the row shows the most that asking a harness to
+        # verdict (protocol.ASK_TO_STORE), so that the row shows the most that asking a harness to
         # store can give. Never for a stateless row, whose state could not survive it.
         if ask_to_store and self.end != "finish":
             raise ValueError("ask_to_store is an addition to the finish protocol (end='finish')")
@@ -158,12 +146,11 @@ class SystemLearner(BaseLearner):
         self._instances_done = 0
         self.stats = {"reprompts": 0, "parse_failures": 0, "restarts": 0, "resets": 0,
                       "refines": 0, "forced_give_ups": 0, "budget_hits": 0, "stalls": 0,
-                      "idle_timeouts": 0, "provider_retries": 0, "batched_actions": 0,
+                      "idle_timeouts": 0, "provider_retries": 0,
                       "sessions": 0, "wipes": 0, "closings": 0, "storage_turns": 0,
                       "finishes": 0, "finish_refusals": 0, "finish_reprompts": 0, "finish_forced": 0,
                       "finish_budget_hits": 0, "empty_replies": 0, "wipe_archives": 0, "store_asks": 0,
                       "library_asks": 0}
-        self._queue: list = []  # actions of a sequence still to be applied, no prompt needed
         self._turns = None      # turns.jsonl, opened on first use
 
     # -- to implement --------------------------------------------------------
@@ -337,14 +324,6 @@ class SystemLearner(BaseLearner):
         raise SystemUnavailable("unreachable")
 
     def act(self, obs: LearnerObservation) -> Action:
-        if self._queue:
-            # The rest of a sequence the system sent last turn. A new instance
-            # (fresh observation) or a changed game state has already emptied it.
-            if obs.is_fresh:
-                self._queue = []
-            else:
-                self.stats["batched_actions"] += 1
-                return self._queue.pop(0)
         if obs.is_fresh and self._session_pending:
             self._session_pending = False
             if self.stateless:
@@ -360,12 +339,10 @@ class SystemLearner(BaseLearner):
                     self.note(f"step {obs.step}: new session failed ({error}); restarting the system")
                     self.close()
         pending = self.transcript.take()
-        protocol = protocol_for(obs)
         finish = self.end == "finish"
         note = self.storage_note
-        library = getattr(protocol, "PROGRAM_LIBRARY_RULES", None)
-        if self.program_library and library:
-            note = "\n".join(x for x in (note, library.format(programs=self.programs_dir())) if x)
+        if self.program_library:
+            note = "\n".join(x for x in (note, protocol.PROGRAM_LIBRARY_RULES.format(programs=self.programs_dir())) if x)
         extra = {"finish": True, "rules_note": note} if finish else {}
 
         def observation(fresh: bool) -> str:
@@ -377,14 +354,11 @@ class SystemLearner(BaseLearner):
             reply = self._ask_resilient(observation, kind="observation", step=obs.step, task=obs.task_id)
             for attempt in range(self.max_reprompts + 1):
                 try:
-                    parsed = protocol.parse_action(reply, finish=True) if finish else protocol.parse_action(reply)
-                    if isinstance(parsed, grid_protocol.Finish):
+                    parsed = protocol.parse_action(reply, finish=finish)
+                    if isinstance(parsed, protocol.Finish):
                         # finish while the instance can still be played: refused, like any action the protocol lacks
                         self.stats["finish_refusals"] += 1
                         raise protocol.ParseError("finish is refused until the instance is over")
-                    if isinstance(parsed, list):
-                        first, self._queue = parsed[0], parsed[1:]
-                        return first
                     return parsed
                 except protocol.ParseError as error:
                     self.stats["parse_failures"] += 1
@@ -393,8 +367,7 @@ class SystemLearner(BaseLearner):
                         self.note(f"step {obs.step}: giving up after {attempt + 1} unusable replies")
                         return GiveUp()
                     self.stats["reprompts"] += 1
-                    hint = (getattr(protocol, "REPROMPT_FINISH", protocol.REPROMPT) if finish
-                            else protocol.REPROMPT).format(reason=error)
+                    hint = (protocol.REPROMPT_FINISH if finish else protocol.REPROMPT).format(reason=error)
 
                     # A system restarted mid-reprompt has lost the instance: resend it.
                     def follow_up(fresh: bool, hint: str = hint) -> str:
@@ -408,18 +381,8 @@ class SystemLearner(BaseLearner):
         return GiveUp()
 
     def observe(self, obs: LearnerObservation, action: Action, feedback: Feedback) -> None:
-        protocol = protocol_for(obs)
         ended = instance_ended(feedback)  # the rule by which TrackedLearner waits for the instance's calls
-        # A sequence stops early when the instance ends or the game needs a decision
-        # (game over, or an action the game refused): the system must look again.
-        if self._queue and (ended or getattr(feedback, "state", None) == "GAME_OVER"
-                            or getattr(feedback, "ignored", False) or getattr(feedback, "valid", True) is False):
-            self._queue = []
-        compact = bool(self._queue)
-        if compact:
-            self.transcript.add_text(protocol.render_feedback(action, feedback, compact=True))
-        else:
-            self.transcript.add_text(protocol.render_feedback(action, feedback))
+        self.transcript.add_text(protocol.render_feedback(action, feedback))
         if ended:
             self._instances_done += 1
             self._close_instance(obs)
@@ -462,13 +425,12 @@ class SystemLearner(BaseLearner):
             self._finish_instance(obs, pending)
             return
         storage = self.storage_turn and not self.stateless
-        render = getattr(protocol_for(obs), "render_closing", grid_protocol.render_closing)
         try:
             if storage:
-                message = grid_protocol.render_storage(pending, conversation_ends=self.session_per_instance,
-                                                       note=self.storage_note)
+                message = protocol.render_storage(pending, conversation_ends=self.session_per_instance,
+                                                  note=self.storage_note)
             else:
-                message = render(pending)
+                message = protocol.render_closing(pending)
             started = time.monotonic()
             self.last_turn_outcome = {}
             reply = self.ask(message)   # the reply is not read
@@ -487,15 +449,12 @@ class SystemLearner(BaseLearner):
         harness does what it wants (store, or nothing) until it replies with finish. Any other action is refused with
         the fact that the instance is over (a submission cannot change the scored record); after ``max_reprompts``
         such replies, or when the harness spends its turn's budget, the instance ends here as if it had finished."""
-        protocol = protocol_for(obs)
         message = "\n".join(pending) if pending else "The instance is over."
-        ask = getattr(protocol, "ASK_TO_STORE", None)
-        if self.ask_to_store and not self.stateless and ask:
-            message += "\n\n" + ask.format(note=f" {self.storage_note}" if self.storage_note else "")
+        if self.ask_to_store and not self.stateless:
+            message += "\n\n" + protocol.ASK_TO_STORE.format(note=f" {self.storage_note}" if self.storage_note else "")
             self.stats["store_asks"] += 1
-        library_ask = getattr(protocol, "PROGRAM_LIBRARY_ASK", None)
-        if self.program_library and library_ask:
-            message += "\n\n" + library_ask.format(path=f"{self.programs_dir()}/{obs.task_id}.py")
+        if self.program_library:
+            message += "\n\n" + protocol.PROGRAM_LIBRARY_ASK.format(path=f"{self.programs_dir()}/{obs.task_id}.py")
             self.stats["library_asks"] += 1
         try:
             for attempt in range(self.max_reprompts + 1):
@@ -512,11 +471,10 @@ class SystemLearner(BaseLearner):
                     return
                 try:
                     parsed = protocol.parse_action(reply, finish=True)
-                    if isinstance(parsed, grid_protocol.Finish):
+                    if isinstance(parsed, protocol.Finish):
                         self.stats["finishes"] += 1
                         return
-                    name = {"Submit": "a submission", "RequestDemos": "a demo request"}.get(type(parsed).__name__,
-                                                                                           "a game action")
+                    name = {"Submit": "a submission", "RequestDemos": "a demo request"}[type(parsed).__name__]
                     reason = f"{name} is refused"
                 except protocol.ParseError as error:
                     reason = str(error)
@@ -525,7 +483,7 @@ class SystemLearner(BaseLearner):
                     self.note(f"step {obs.step}: no finish after {attempt + 1} replies; the instance ends here")
                     return
                 self.stats["finish_reprompts"] += 1
-                message = grid_protocol.OVER_REPROMPT.format(reason=reason)
+                message = protocol.OVER_REPROMPT.format(reason=reason)
         except SystemUnavailable as error:
             # a system that cannot take the verdict is restarted for the next instance
             self.note(f"step {obs.step}: verdict turn failed ({error}); restarting the system")

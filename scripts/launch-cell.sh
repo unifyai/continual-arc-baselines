@@ -15,7 +15,7 @@
 # stopped, wiped and restarted before every instance), stateless-method (row M0), ask-harness and ask-acp (row HA,
 # asked to store after every verdict), pl-harness and pl-acp (row HPL, told to keep a program library as row M does),
 # stateless-pl-harness and stateless-pl-acp (row HPL0). Modes are workstreams, sequential, random and fresh (the
-# transfer reference); configurations arc1-small, arc2-small and arc3-small.
+# transfer reference); configurations arc1-small and arc2-small.
 #
 # An empty reply is re-prompted like any unusable reply, and a system is restarted only when its process is dead or
 # silent. EMPTY_REPLY=restart gives the earlier rule, under which an empty reply restarted the system: the paper's
@@ -59,8 +59,8 @@ launch() {  # cell learner kwargs defaults config mode seed
 }
 # A preset names a model at one reasoning effort, the pair the ARC Prize leaderboard verifies. Each grid model was
 # chosen there (scripts/arc-leaderboard.py): verified zero-shot between about 15 and 60 percent on its track, the band
-# where a harness has room to learn. The grid is one family, GPT-6 Luna, with effort as the ability axis, and Claude
-# Opus 5.5 at low effort on ARC-AGI-3. The leaderboard figures are those of September 2026.
+# where a harness has room to learn. The grid is one family, GPT-6 Luna, with effort as the ability axis. The
+# leaderboard figures are those of September 2026.
 model_of() {
     case $1 in
       luna6-low)    model=openai/gpt-6-luna;         effort=low;    tag=luna6-low ;;     # ARC-AGI-1 37.7% at 0.003 USD/task
@@ -68,7 +68,6 @@ model_of() {
       luna6-high)   model=openai/gpt-6-luna;         effort=high;   tag=luna6-high ;;    # ARC-AGI-1 70.3% at 0.009; ARC-AGI-2 31.4% at 0.023
       luna6-xhigh)  model=openai/gpt-6-luna;         effort=xhigh;  tag=luna6-xhigh ;;   # ARC-AGI-2 41.9% at 0.032
       luna6-max)    model=openai/gpt-6-luna;         effort=max;    tag=luna6-max ;;     # ARC-AGI-2 59.3% at 0.062
-      opus55-low)   model=anthropic/claude-opus-5.5; effort=low;    tag=opus55-low ;;    # ARC-AGI-3, not on the board
       *) echo "unknown preset $1"; exit 1 ;;
     esac
 }

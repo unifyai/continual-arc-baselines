@@ -36,11 +36,10 @@ TOKEN_FIELDS = ("input", "output", "cache_read", "cache_write", "reasoning")
 
 def instance_ended(feedback: Any) -> bool:
     """Whether ``feedback`` ends its instance: a give-up; a correct submission, or the one that
-    reaches the attempt cap; a completed ARC-AGI-3 level, or the action or reset that reaches its
-    action cap."""
+    reaches the attempt cap."""
     return isinstance(feedback, GiveUpFeedback) or (
         isinstance(feedback, SubmitFeedback) and (feedback.correct or feedback.failed)
-    ) or bool(getattr(feedback, "level_completed", False)) or bool(getattr(feedback, "failed", False))
+    )
 
 
 @dataclass

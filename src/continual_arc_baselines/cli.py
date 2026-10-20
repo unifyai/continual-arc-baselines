@@ -106,8 +106,9 @@ def run_parameters(*, learner, learner_spec, learner_kwargs, schedule, config_na
 
 def cmd_run(args) -> int:
     from continual_arc.configs import build_schedule
+    from continual_arc.env import EnvConfig
     from continual_arc.report import text_report
-    from continual_arc.runner import build_env, default_config, load_config, prior_records, run
+    from continual_arc.runner import build_env, prior_records, run
     from continual_arc.schedule import Schedule
 
     from continual_arc_baselines.evidence import Evidence
@@ -120,9 +121,7 @@ def cmd_run(args) -> int:
         schedule = Schedule.load(args.schedule)
     else:
         schedule = build_schedule(args.config, args.mode, seed=args.seed)
-    # The environment config follows the schedule's dataset: grids for ARC-AGI-1
-    # and 2, games for ARC-AGI-3.
-    config = load_config(json.loads(Path(args.env_config).read_text())) if args.env_config else default_config(schedule)
+    config = EnvConfig.from_json(json.loads(Path(args.env_config).read_text())) if args.env_config else EnvConfig()
     kwargs = json.loads(args.learner_kwargs) if args.learner_kwargs else {}
     registry = _import(args.registry, "registry")() if args.registry else None
     name = args.name or args.learner.rsplit(":", 1)[-1]
@@ -244,7 +243,7 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--learner", required=True, help="import path, e.g. continual_arc_baselines.systems.prime_agent:PrimeAgentLearner")
     r.add_argument("--learner-kwargs", help="JSON object of constructor kwargs")
     r.add_argument("--schedule", help="schedule JSON from `continual-arc schedule make`")
-    r.add_argument("--config", help="named config to build a schedule from: <track>-<size>, e.g. arc1-small, arc2-small, arc3-small (no default track)")
+    r.add_argument("--config", help="named config to build a schedule from: <track>-<size>, e.g. arc1-small, arc2-small (no default track)")
     r.add_argument("--mode", default="workstreams", help="workstreams | sequential | random | fresh (the transfer reference)")
     r.add_argument("--seed", type=int, default=0)
     r.add_argument("--env-config", help="EnvConfig JSON file (default: benchmark defaults)")

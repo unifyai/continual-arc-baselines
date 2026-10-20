@@ -116,7 +116,7 @@ def render_pairs(pairs: list[Any], start: int = 1) -> str:
     return "\n\n".join(parts)
 
 
-def render_feedback(action: Action, feedback: Feedback, compact: bool = False) -> str:
+def render_feedback(action: Action, feedback: Feedback) -> str:
     if isinstance(feedback, SubmitFeedback):
         if feedback.correct:
             return f"Your submission was CORRECT. Instance solved with {feedback.attempts_used} wrong attempt(s)."
@@ -534,10 +534,6 @@ def _objects_from_end(text: str, open_ch: str = "{", close_ch: str = "}") -> lis
         if start >= 0:
             found.append(text[start:close + 1])
     return found
-
-
-# The floors' and ARC-AGI-3's parsers share the candidate scan under its old name.
-_json_objects_from_end = _objects_from_end
 
 
 _ROW_RUN = re.compile(r"(?:\[\s*\d\s*(?:,\s*\d\s*)*\]\s*,?\s*){2,}")

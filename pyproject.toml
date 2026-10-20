@@ -16,9 +16,6 @@ dependencies = [
     "httpx>=0.27",
 ]
 
-[project.optional-dependencies]
-arc3 = ["continual-arc[arc3]"]
-
 [project.urls]
 Repository = "https://github.com/unifyai/continual-arc-baselines"
 

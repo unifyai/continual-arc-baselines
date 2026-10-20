@@ -28,7 +28,7 @@ runs are attached to the benchmark's [v0.1.0 release](https://github.com/unifyai
 |---|---|
 | `src/continual_arc_baselines/systems/bare.py` | the model alone behind the harness protocol: the two floors of row F (`BareModelLearner`, stateless, and `BareDemoCacheLearner`, which shows a task's bought pairs again when it returns) and the program library of row PL (`BareProgramLibraryLearner`; row PL0 with `stateless=True`; the run records name these rows M and M0) |
 | `src/continual_arc_baselines/systems/prime_agent.py`, `hermes_agent.py`, `openclaw.py` | the harness adapters of row H: prime-agent over its RPC mode, hermes-agent and openclaw over the Agent Client Protocol (`acp.py`). Row H0 is `stateless=True`, row HA `ask_to_store=True` and row HPL `program_library=True`. `opencode.py` drives a harness that is not in the grid, since it has no mechanism that writes memory or skills |
-| `src/continual_arc_baselines/systems/protocol.py`, `arc3_protocol.py`, `base.py` | the messages a learner is shown, the lenient parser that reads an action from a reply, the frame-and-actions protocol of ARC-AGI-3, and the adapter base class with its budgets, restarts and wipes |
+| `src/continual_arc_baselines/systems/protocol.py`, `base.py` | the messages a learner is shown, the lenient parser that reads an action from a reply, and the adapter base class with its budgets, restarts and wipes |
 | `src/continual_arc_baselines/systems/sandbox.py` | the sandbox each harness runs in: bubblewrap on Linux, Seatbelt on macOS |
 | `src/continual_arc_baselines/proxy.py`, `tracking.py` | the OpenAI-compatible reverse proxy that records every model call, and the per-instance counters it feeds (`llm_*` in every record) |
 | `src/continual_arc_baselines/cli.py` | `arc-baselines run`: builds a schedule, runs a learner over it with the benchmark's runner and writes the run directory |
@@ -51,10 +51,8 @@ uv run continual-arc data fetch --datasets arc1 arc2   # Re-ARC, ARC-AGI-1 and A
 uv run pytest                                          # no network or keys needed
 ```
 
-The ARC-AGI-3 track also needs the ARC Prize toolkit and the pinned games: `uv sync --extra arc3`, then
-`uv run continual-arc data fetch --datasets arc3`. On Ubuntu 24.04, bubblewrap needs unprivileged user namespaces,
-which AppArmor restricts by default: `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`, as the paper's
-machines had.
+On Ubuntu 24.04, bubblewrap needs unprivileged user namespaces, which AppArmor restricts by default:
+`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`, as the paper's machines had.
 
 Each harness row needs its harness, at the versions of the paper's Appendix D:
 
@@ -88,12 +86,11 @@ four-method interface that builds its client from `OPENAI_BASE_URL`.
 
 ## Reproduce the paper's runs
 
-`bash scripts/paper-grid.sh` launches every cell the paper reports: 257 runs on the three tracks, ARC-AGI-1 on GPT-6
-Luna at low, medium and high effort, ARC-AGI-2 at medium to max effort (the floors at low too), and ARC-AGI-3 on
-Claude Opus 5.5 at low effort. Each writes `runs/<track>/<cell>/`, under the name its record carries in the run
+`bash scripts/paper-grid.sh` launches every cell the paper reports: 254 runs on the two tracks, ARC-AGI-1 on GPT-6
+Luna at low, medium and high effort and ARC-AGI-2 at medium to max effort (the floors at low too). Each writes `runs/<track>/<cell>/`, under the name its record carries in the run
 records. Every cell is detached and long-lived,
-so launch a part at a time (`bash scripts/paper-grid.sh arc3`), and `DRY_RUN=1` shows each cell's command first. The
-paper's 257 runs made about 2,000 USD of model calls through OpenRouter, by the cost the proxy recorded on each
+so launch a part at a time (`bash scripts/paper-grid.sh arc2`), and `DRY_RUN=1` shows each cell's command first. The
+paper's 254 runs made about 1,800 USD of model calls through OpenRouter, by the cost the proxy recorded on each
 instance. The models are sampled through provider APIs, so a rerun differs from the paper's by about the spread the
 paper reports.
 

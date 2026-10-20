@@ -101,8 +101,6 @@ restart harness luna6-medium arc2-small workstreams 0
 restart harness luna6-xhigh arc2-small fresh 0
 restart harness luna6-xhigh arc2-small sequential 0
 restart harness luna6-xhigh arc2-small workstreams 0
-restart harness opus55-low arc3-small fresh 0
-restart harness opus55-low arc3-small workstreams 0
 restart method luna6-high fresh 0 arc1-small
 restart method luna6-high fresh 0 arc2-small
 restart method luna6-high random 0 arc1-small
@@ -194,7 +192,6 @@ restart stateless-harness luna6-medium arc2-small sequential 0
 restart stateless-harness luna6-medium arc2-small workstreams 0
 restart stateless-harness luna6-xhigh arc2-small sequential 0
 restart stateless-harness luna6-xhigh arc2-small workstreams 0
-restart stateless-harness opus55-low arc3-small workstreams 0
 reprompt stateless-method luna6-high random 0 arc1-small
 reprompt stateless-method luna6-high sequential 0 arc1-small
 reprompt stateless-method luna6-high workstreams 0 arc1-small

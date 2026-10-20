@@ -9,7 +9,7 @@ from continual_arc.runner import learner_view
 from continual_arc.schedule import RANDOM, stream_schedule
 from continual_arc.tasks import FixedArcSource, TaskRegistry
 
-from continual_arc_baselines.systems import arc3_protocol, protocol
+from continual_arc_baselines.systems import protocol
 from continual_arc_baselines.systems.base import SystemLearner
 
 TASKS = {"f": {"train": [{"input": [[1, 0]], "output": [[0, 1]]}, {"input": [[2, 0]], "output": [[0, 2]]}],
@@ -110,32 +110,21 @@ def test_the_other_ends_are_unchanged(tmp_path):
 
 
 def test_the_rules_state_facts_only():
-    for rules in (protocol.RULES_FINISH, arc3_protocol.RULES_FINISH):
-        rules = " ".join(rules.split())   # the rules wrap at the page width
-        assert '{"action": "finish"}' in rules and "finish is refused until the instance is over" in rules
-        assert "Each instance is a separate conversation" in rules and "scored on its own" in rules
-        for advice in ("worth keeping", "prefer", "nothing is shared", "keep exploring", "transformed copy"):
-            assert advice not in rules, advice
+    rules = " ".join(protocol.RULES_FINISH.split())   # the rules wrap at the page width
+    assert '{"action": "finish"}' in rules and "finish is refused until the instance is over" in rules
+    assert "Each instance is a separate conversation" in rules and "scored on its own" in rules
+    for advice in ("worth keeping", "prefer", "nothing is shared", "keep exploring", "transformed copy"):
+        assert advice not in rules, advice
 
 
 def test_finish_parses_only_under_the_finish_protocol():
     for text in ('{"action": "finish"}', "done", 'Saved.\n{"action": "done"}', '```json\n{"action": "end_instance"}\n```'):
         assert protocol.parse_action(text, finish=True) == protocol.Finish()
-    assert arc3_protocol.parse_action('{"action": "finish"}', finish=True) == protocol.Finish()
-    for parse in (protocol.parse_action, arc3_protocol.parse_action):
-        try:
-            parse('{"action": "finish"}')
-            raise AssertionError("finish parsed without the finish protocol")
-        except (protocol.ParseError, arc3_protocol.ParseError):
-            pass
-
-
-def test_the_arc3_verdict_says_when_the_cap_ends_the_instance():
-    from continual_arc.arc3.env import Act, ActFeedback
-
-    text = arc3_protocol.render_feedback(Act(1), ActFeedback([], "NOT_FINISHED", False, 40, True, False, failed=True))
-    assert "The action cap is reached; the instance is over." in text
-    assert "instance is over" not in arc3_protocol.render_feedback(Act(1), ActFeedback([], "NOT_FINISHED", False, 3, True, False))
+    try:
+        protocol.parse_action('{"action": "finish"}')
+        raise AssertionError("finish parsed without the finish protocol")
+    except protocol.ParseError:
+        pass
 
 
 def test_the_ask_to_store_follows_the_verdict_only_in_row_ha(tmp_path):

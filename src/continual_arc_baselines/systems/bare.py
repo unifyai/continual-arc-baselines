@@ -38,7 +38,7 @@ from continual_arc.env import (
 
 from continual_arc_baselines.learners.prompting import _PY_FENCE, extract_program, run_transform
 from continual_arc_baselines.proxy import PLACEHOLDER_KEY
-from continual_arc_baselines.systems import protocol as grid_protocol
+from continual_arc_baselines.systems import protocol
 from continual_arc_baselines.systems.base import SystemLearner, SystemUnavailable
 from continual_arc_baselines.systems.protocol import _shape, render_grid
 
@@ -264,13 +264,13 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
         program = extract_program(reply)
         rest = _PY_FENCE.sub("", reply) if program else reply
         try:
-            parsed: Any = grid_protocol.parse_action(rest, finish=True)
+            parsed: Any = protocol.parse_action(rest, finish=True)
             reason = ""
-        except grid_protocol.ParseError as error:
+        except protocol.ParseError as error:
             parsed, reason = None, str(error)
         if isinstance(parsed, RequestDemos):
             return "action", parsed
-        if isinstance(parsed, grid_protocol.Finish):
+        if isinstance(parsed, protocol.Finish):
             self.stats["finish_refusals"] += 1
             return "unusable", "finish is refused until the instance is over"
         if program is None or "def transform" not in program:
@@ -331,10 +331,10 @@ class BareProgramLibraryLearner(BareDemoCacheLearner):
 
         def observation(fresh: bool) -> str:
             preface = self.instance_preface(obs) if fresh else ""
-            return grid_protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost,
-                                                    first_in_session=fresh, finish=True,
-                                                    rules_note=PROGRAM_NOTE_STATELESS if self.stateless else PROGRAM_NOTE,
-                                                    preface=preface)
+            return protocol.render_observation(obs, pending=pending, demo_cost=self.demo_cost,
+                                               first_in_session=fresh, finish=True,
+                                               rules_note=PROGRAM_NOTE_STATELESS if self.stateless else PROGRAM_NOTE,
+                                               preface=preface)
 
         try:
             reply = self._ask_resilient(observation, kind="observation", step=obs.step, task=obs.task_id)

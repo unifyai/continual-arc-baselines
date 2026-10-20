@@ -10,7 +10,7 @@ in the band where a harness has room to learn, and nothing about a model should 
 memory when this table is one command away.
 
 Usage:
-  arc-leaderboard.py [--dataset arc1|arc2|arc3] [--min-score S] [--max-score S] [--max-cost C]
+  arc-leaderboard.py [--dataset arc1|arc2] [--min-score S] [--max-score S] [--max-cost C]
                      [--grep PATTERN] [--band] [--openrouter] [--refresh] [--json]
   --band       the calibration band for ARC-AGI-1: score 0.30 to 0.65 at up to 0.10 USD a task,
                the region where a model solves enough to drive a harness and misses enough to learn
@@ -32,7 +32,7 @@ from pathlib import Path
 SITE = "https://arcprize.org"
 LEADERBOARD = f"{SITE}/leaderboard"
 FILES = ("datasets", "models", "providers", "evaluations")
-DATASETS = {"arc1": "v1_Semi_Private", "arc2": "v2_Semi_Private", "arc3": "v3_Semi_Private"}
+DATASETS = {"arc1": "v1_Semi_Private", "arc2": "v2_Semi_Private"}
 CACHE = Path(__file__).resolve().parent.parent / ".workbench" / "arc-leaderboard"
 CACHE_TTL_S = 3600
 

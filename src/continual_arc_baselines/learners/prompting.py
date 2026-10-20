@@ -83,9 +83,9 @@ _PY_FENCE = re.compile(r"```python\s*(.*?)```", re.DOTALL)
 def extract_program(text: str) -> str | None:
     """The program from a reply: the ``program`` string of the last JSON object, else the
     last fenced Python block, else the whole text when it defines ``transform``."""
-    from continual_arc_baselines.systems.protocol import _json_objects_from_end
+    from continual_arc_baselines.systems.protocol import _objects_from_end
 
-    for candidate in [m.group(1) for m in reversed(list(_FENCE.finditer(text)))] + _json_objects_from_end(text):
+    for candidate in [m.group(1) for m in reversed(list(_FENCE.finditer(text)))] + _objects_from_end(text):
         try:
             obj = json.loads(candidate)
         except ValueError:
@@ -101,10 +101,10 @@ def extract_program(text: str) -> str | None:
 def extract_grid(text: str):
     """The last JSON object with a grid under a known key, else the last bare
     list of lists; None if nothing parses as a grid."""
-    from continual_arc_baselines.systems.protocol import GRID_KEYS, _json_objects_from_end
+    from continual_arc_baselines.systems.protocol import GRID_KEYS, _objects_from_end
 
     candidates = [m.group(1) for m in reversed(list(_FENCE.finditer(text)))]
-    candidates += _json_objects_from_end(text)
+    candidates += _objects_from_end(text)
     for candidate in candidates:
         try:
             obj = json.loads(candidate)
