@@ -218,6 +218,6 @@ def test_openclaw_npm_fails_fast():
     learner = OpenClawLearner.__new__(OpenClawLearner)
     learner._port = 1
     learner._token = "t"
-    learner.workdir = Path("/x")
+    learner.workdir, learner._state_dir = Path("/x"), None
     env = learner.extra_env()
     assert env["npm_config_fetch_retries"] == "0"

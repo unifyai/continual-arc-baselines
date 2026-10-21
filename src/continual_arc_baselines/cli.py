@@ -9,6 +9,9 @@ the run and its address is exported as ``OPENAI_BASE_URL`` / ``OPENROUTER_BASE_U
 / ``ARC_LLM_BASE_URL`` (with a placeholder key) before the learner is built, so
 any system the learner spawns, and any client the learner builds from the
 environment, is measured at the HTTP boundary without further wiring.
+
+``arc-baselines test`` plays a frozen test after a harness's stream, from the
+state the stream left (:mod:`continual_arc_baselines.frozen`).
 """
 
 from __future__ import annotations
@@ -18,6 +21,8 @@ import hashlib
 import importlib
 import json
 import os
+import shutil
+import signal
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -104,21 +109,83 @@ def run_parameters(*, learner, learner_spec, learner_kwargs, schedule, config_na
 
 def cmd_run(args) -> int:
     from continual_arc.configs import build_schedule
-    from continual_arc.env import EnvConfig
-    from continual_arc.report import text_report
-    from continual_arc.runner import build_env, prior_records, run
     from continual_arc.schedule import Schedule
 
-    from continual_arc_baselines.evidence import Evidence
-    from continual_arc_baselines.proxy import LLMProxy
-    from continual_arc_baselines.tracking import JournalSink, PilotStop, TrackedLearner, Tracker
+    from continual_arc_baselines.frozen import holding
 
     if bool(args.schedule) == bool(args.config):
         raise SystemExit("give exactly one of --schedule or --config")
+    if args.schedule and args.no_epilogue:
+        raise SystemExit("--no-epilogue builds the schedule from --config; a --schedule is played as it is")
     if args.schedule:
         schedule = Schedule.load(args.schedule)
     else:
-        schedule = build_schedule(args.config, args.mode, seed=args.seed)
+        schedule = build_schedule(args.config, args.mode, seed=args.seed, epilogue=not args.no_epilogue)
+    if not args.out:
+        return play(args, schedule)
+    Path(args.out).mkdir(parents=True, exist_ok=True)
+    with holding(Path(args.out)):
+        return play(args, schedule)
+
+
+def cmd_test(args) -> int:
+    from continual_arc.aliases import SALT_FILE
+    from continual_arc.runner import prior_records
+    from continual_arc.schedule import Schedule
+
+    from continual_arc_baselines.frozen import PLAYED_FROM, check, first_launch, holding, system_of
+    from continual_arc_baselines.systems.base import SystemLearner
+
+    run_dir = Path(args.run_dir).resolve()
+    test = Schedule.load(args.schedule)
+    played = check(run_dir, test, args.schedule)
+    out = Path(args.out) if args.out else run_dir / "frozen" / test.meta["test"] / "play"
+    played_from = {"stream": str(run_dir), "instances": played}
+    if prior_records(out):
+        if not (out / PLAYED_FROM).is_file() or json.loads((out / PLAYED_FROM).read_text()) != played_from:
+            raise SystemExit(f"{out} holds a test played from another stream end than {run_dir}'s after {played} "
+                             "instances: give this test an --out of its own")
+        if len(prior_records(out)) == len(test.slots) and Schedule.load(out / "schedule.json").slots == test.slots:
+            print(f"{out} holds the whole test already", file=sys.stderr)
+            return 0
+    launch = first_launch(run_dir)
+    learner = _import(launch.learner, "learner")
+    if not (isinstance(learner, type) and issubclass(learner, SystemLearner) and learner.state_in_files):
+        raise SystemExit(f"{launch.learner} keeps no state as files in a state directory, so nothing of its stream's "
+                         "end is on disk to play a test from: a harness adapter (SystemLearner) does. Play a Python "
+                         "learner's tests from a copy of it, as continual-arc's README shows")
+    launch.config, launch.out, launch.resume, launch.stop_after = None, str(out), True, None
+    launch.quiet, launch.argv = args.quiet, args.argv
+    # stopped with kill or a hangup, a test still gives the stream's state back as it ends, as it does on Ctrl-C
+    stops = {sig: signal.signal(sig, lambda signum, frame: sys.exit(128 + signum))
+             for sig in (signal.SIGTERM, signal.SIGHUP)}
+    try:
+        with holding(run_dir):
+            out.mkdir(parents=True, exist_ok=True)
+            (out / PLAYED_FROM).write_text(json.dumps(played_from))
+            shutil.copy2(run_dir / SALT_FILE, out / SALT_FILE)   # the names the stream gave its tasks
+            return play(launch, test, stream=(system_of(run_dir), played))
+    finally:
+        for sig, handler in stops.items():
+            signal.signal(sig, handler)
+
+
+def play(args, schedule, stream: tuple[Path, int] | None = None) -> int:
+    """Run the learner ``args`` names over ``schedule``, writing the run directory and the attempt's evidence. A
+    harness's stream taken up again first takes its state back from a test stopped hard
+    (:mod:`continual_arc_baselines.frozen`). ``stream``, the system folder of a harness's stream and how many instances
+    it played, makes this that stream's frozen test (:func:`cmd_test`): the harness keeps its logs in the test's own
+    attempt and plays every instance from a copy of the stream's state, at the stream's own path."""
+    from continual_arc.env import EnvConfig
+    from continual_arc.report import text_report
+    from continual_arc.runner import build_env, prior_records, run
+
+    from continual_arc_baselines.evidence import Evidence
+    from continual_arc_baselines.frozen import give_back, hold_aside, settle
+    from continual_arc_baselines.proxy import LLMProxy
+    from continual_arc_baselines.systems.base import SystemLearner
+    from continual_arc_baselines.tracking import JournalSink, PilotStop, TrackedLearner, Tracker
+
     config = EnvConfig.from_json(json.loads(Path(args.env_config).read_text())) if args.env_config else EnvConfig()
     kwargs = json.loads(args.learner_kwargs) if args.learner_kwargs else {}
     registry = _import(args.registry, "registry")() if args.registry else None
@@ -136,7 +203,8 @@ def cmd_run(args) -> int:
         if attempt.is_dir():
             evidence = Evidence.reopen(attempt, max_cost=config.max_cost)
     if evidence is None:
-        evidence = Evidence.from_environment(name=name, max_cost=config.max_cost)
+        label = name if stream is None else f"{name}-{schedule.meta['test']}"
+        evidence = Evidence.from_environment(name=label, max_cost=config.max_cost)
     out_dir = Path(args.out) if args.out else evidence.directory / "continual-arc"
     if args.out:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -168,7 +236,10 @@ def cmd_run(args) -> int:
                           "upstream_key_present": bool(proxy.api_key)}
 
     learner = _import(args.learner, "learner")(**kwargs)
-    if hasattr(learner, "attach"):
+    if stream is not None:
+        learner.attach(evidence.directory / "system", proxy.environ() if proxy else {}, tracker=tracker,
+                       state_dir=stream[0] / "state")
+    elif hasattr(learner, "attach"):
         learner.attach(evidence.directory / "system", proxy.environ() if proxy else {},
                        tracker=tracker)
     params = run_parameters(
@@ -202,7 +273,13 @@ def cmd_run(args) -> int:
                 file=sys.stderr,
             )
 
+    system = learner.state_dir.parent if isinstance(learner, SystemLearner) else None
     try:
+        if stream is not None:
+            settle(system, stream[1])
+            learner.freeze(hold_aside(system, stream[1]))
+        elif prior and system is not None:
+            settle(system, len(prior))
         result = run(
             TrackedLearner(learner, tracker, stop_after=args.stop_after, done=len(prior)), schedule, config=config,
             out_dir=out_dir, registry=registry, log_events=args.events, progress=progress, learner_name=name,
@@ -217,6 +294,8 @@ def cmd_run(args) -> int:
     finally:
         if hasattr(learner, "close"):
             learner.close()
+        if stream is not None and learner.frozen is not None:
+            give_back(system, learner.frozen)   # the stream's state where the stream left it
         if proxy is not None:
             proxy.stop()
     emitted = evidence.finish(result)
@@ -244,6 +323,9 @@ def build_parser() -> argparse.ArgumentParser:
     r.add_argument("--config", help="named config to build a schedule from: <track>-<size>, e.g. arc1-small, arc1-medium (no default track)")
     r.add_argument("--mode", default="workstreams", help="workstreams | sequential | random | fresh (the transfer reference)")
     r.add_argument("--seed", type=int, default=0)
+    r.add_argument("--no-epilogue", action="store_true",
+                   help="with --config, the stream alone, as `continual-arc schedule make --no-epilogue` builds it: "
+                        "the run a harness's frozen tests follow (arc-baselines test)")
     r.add_argument("--env-config", help="EnvConfig JSON file (default: benchmark defaults)")
     r.add_argument("--registry", help="import path of a zero-arg TaskRegistry factory (testing)")
     r.add_argument("--out", help="run directory (default: <attempt dir>/continual-arc)")
@@ -273,6 +355,14 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--capture-content", action="store_true",
                    help="also journal request and response bodies (large; off by default)")
     r.set_defaults(func=cmd_run)
+    t = sub.add_parser("test", help="play a frozen test after a harness's stream, one instance at a time, each from "
+                                    "the state the stream left (continual_arc_baselines.frozen)")
+    t.add_argument("run_dir", help="the stream's run directory, from arc-baselines run --out, played whole")
+    t.add_argument("--schedule", required=True,
+                   help="the test, from `continual-arc schedule make --test held-out|seen --width 1`")
+    t.add_argument("--out", help="the test's run directory (default: RUN_DIR/frozen/<the test>/play)")
+    t.add_argument("--quiet", action="store_true")
+    t.set_defaults(func=cmd_test)
     return p
 
 

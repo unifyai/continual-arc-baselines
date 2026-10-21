@@ -139,6 +139,7 @@ class BareDemoCacheLearner(BareModelLearner):
     join the cache. Nothing else is kept: no answers, no verdicts, no conversation."""
 
     name = "bare-demo-cache"
+    state_in_files = False  # the cache, and the program library's programs, live in memory for the run alone
 
     def __init__(self, model: str, *, cache_cap: int = 8, **kwargs: Any):
         super().__init__(model, **kwargs)

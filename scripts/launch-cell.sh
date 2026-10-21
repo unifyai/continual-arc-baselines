@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Launch one cell of the paper's grid: `arc-baselines run` for one row at one preset, configuration, order and seed,
-# detached, writing the run directory runs/<track>/<cell>/ and its log beside it. A cell whose run directory exists is
+# detached, writing the run directory runs/<track>/<cell>/ and its log beside it. A cell plays its stream alone, with
+# no epilogue (--no-epilogue), so that a harness cell's two frozen tests can follow it from the state the stream left
+# (arc-baselines test runs/<track>/<cell> --schedule TEST.json, README). A cell whose run directory exists is
 # skipped, so a line can be run again; RESUME=1 continues a cell that stopped part-way. DRY_RUN=1 prints each cell's
 # run directory and command and runs nothing. RUNS=<dir> writes somewhere other than runs/.
 #
@@ -49,7 +51,8 @@ launch() {  # cell learner kwargs defaults config mode seed
     local cell=$1 learner=$2 kwargs=$3 defaults=$4 cfg=$5 mode=$6 seed=$7
     local dir="$RUNS/${cfg%%-*}/$cell"
     local cmd=(uv run --no-sync python -m continual_arc_baselines run --learner "$learner" --learner-kwargs "$kwargs"
-               --llm-defaults "$defaults" --config "$cfg" --mode "$mode" --seed "$seed" --out "$dir" --events --quiet)
+               --llm-defaults "$defaults" --config "$cfg" --mode "$mode" --seed "$seed" --no-epilogue --out "$dir"
+               --events --quiet)
     [ -n "${RESUME:-}" ] && cmd+=(--resume)
     if [ -n "${DRY_RUN:-}" ]; then echo "$dir"; printf '  %q' "${cmd[@]}"; echo; return; fi
     [ -d "$dir" ] && [ -z "${RESUME:-}" ] && { echo "exists: $dir"; return; }

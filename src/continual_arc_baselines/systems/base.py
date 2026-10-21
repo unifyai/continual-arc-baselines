@@ -18,6 +18,10 @@ costs one action, not the run.** If the system cannot be brought back after
 Every turn the adapter logs (``turns.jsonl``) carries how it ended when the adapter knows it
 (``outcome``: the harness's stop reason and its own error message), and a launch since 28 Sep
 re-prompts an empty reply rather than restarting the system (``empty_reply``).
+
+Everything a system keeps between instances lives under its state directory (``state_dir``). A frozen test plays
+every instance from the state the stream left there: :meth:`SystemLearner.freeze` makes each reset put a copy of that
+state in its place, at the same path, instead of wiping it (:mod:`continual_arc_baselines.frozen`).
 """
 
 from __future__ import annotations
@@ -34,6 +38,7 @@ from typing import Any
 from continual_arc.env import Action, Feedback, GiveUp, LearnerObservation
 from continual_arc.learner import BaseLearner
 
+from continual_arc_baselines.frozen import put_back
 from continual_arc_baselines.systems import protocol
 from continual_arc_baselines.systems.protocol import Transcript
 from continual_arc_baselines.tracking import instance_ended
@@ -56,8 +61,9 @@ class SystemLearner(BaseLearner):
 
     Lifecycle: :meth:`attach` (where to keep state, what environment children
     inherit, the run's tracker) is called once by the CLI before the run;
-    :meth:`start` lazily on the first action; :meth:`reset` stops, wipes and
-    lazily restarts; :meth:`stop` at the end. ``demo_cost`` and ``max_cost`` (the
+    :meth:`start` lazily on the first action; :meth:`reset` stops, wipes (or, once
+    :meth:`freeze` is called, puts a saved state back) and lazily restarts;
+    :meth:`stop` at the end. ``demo_cost`` and ``max_cost`` (the
     configuration's whole budget, what an unsolved instance costs) are only for the
     wording of the rules.
     """
@@ -66,6 +72,9 @@ class SystemLearner(BaseLearner):
     # What the harness keeps between instances, in its own terms, for the storage turn's message (storage_turn): the
     # facts its agent needs to save anything that lasts, and cannot know otherwise.
     storage_note = ""
+    # Whether everything the system keeps between instances is in files under state_dir, which a frozen test puts back
+    # before every instance; a learner that keeps it in memory sets False, and has no frozen tests.
+    state_in_files = True
 
     def __init__(self, *, max_reprompts: int = 2, refine_every: int = 0, demo_cost: float = 1.0,
                  max_cost: float = 16.0, max_restarts: int = 2, session_per_instance: bool = True, instance_gap_s: float = 0.0,
@@ -136,6 +145,8 @@ class SystemLearner(BaseLearner):
         self.max_cost = max_cost
         self.max_restarts = max_restarts
         self.workdir: Path = Path(".workbench") / "system"
+        self._state_dir: Path | None = None  # a state directory attach named outside the workdir
+        self.frozen: Path | None = None      # the saved state every reset puts back (freeze)
         self.environ: dict[str, str] = dict(os.environ)
         self.tracker: Any = None
         self.transcript = Transcript()
@@ -209,11 +220,29 @@ class SystemLearner(BaseLearner):
 
     # -- lifecycle -----------------------------------------------------------
 
-    def attach(self, workdir: Path, environ: dict[str, str], tracker: Any = None) -> None:
+    def attach(self, workdir: Path, environ: dict[str, str], tracker: Any = None,
+               state_dir: Path | None = None) -> None:
+        """``state_dir`` is ``workdir/state`` unless named: a frozen test's system keeps its logs in a workdir of its
+        own and plays from the state its stream left, where the stream left it."""
         self.workdir = Path(workdir)
         self.workdir.mkdir(parents=True, exist_ok=True)
+        self._state_dir = None if state_dir is None else Path(state_dir)
         self.environ = {**os.environ, **environ}
         self.tracker = tracker
+
+    @property
+    def state_dir(self) -> Path:
+        """Everything the system persists between instances lives under here, and a system may create siblings of its
+        own folders in it (prime-agent's ``session-artifacts``). The adapter's own logs stay outside it, in the
+        workdir, unreadable by the system."""
+        return self._state_dir or self.workdir / "state"
+
+    def freeze(self, state: Path) -> None:
+        """Play every instance from ``state``, a state directory saved whole, from now on: a frozen test's, the state the
+        stream left (:mod:`continual_arc_baselines.frozen`). It is put in :attr:`state_dir`'s place now and by every
+        :meth:`reset`, in place of a wipe; a stateless row's reset wipes it after, as its stream's did."""
+        self.frozen = Path(state)
+        put_back(self.frozen, self.state_dir)
 
     def _ensure_started(self) -> None:
         if not self._started:
@@ -225,8 +254,12 @@ class SystemLearner(BaseLearner):
         if self._started:
             self.stop()
             self._started = False
-        self._archive_before_wipe()
-        self.wipe_state()
+        if self.frozen is None:
+            self._archive_before_wipe()
+        else:   # what the instance wrote goes, its transcripts with it
+            put_back(self.frozen, self.state_dir)
+        if self.frozen is None or self.stateless:
+            self.wipe_state()
         self.transcript = Transcript()
         self.stats["resets"] += 1
 
@@ -397,7 +430,8 @@ class SystemLearner(BaseLearner):
                     self.after_instance()
                 except SystemUnavailable as error:
                     self.note(f"step {obs.step}: after-instance step failed ({error})")
-            if self.instance_gap_s > 0:
+            if self.instance_gap_s > 0 and self.frozen is None:
+                # frozen, the next instance starts from the saved state, so housekeeping in the gap would be lost
                 time.sleep(self.instance_gap_s)
             if self.session_per_instance:
                 self._session_pending = True

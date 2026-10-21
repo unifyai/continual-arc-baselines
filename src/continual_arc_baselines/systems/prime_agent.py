@@ -226,13 +226,6 @@ class PrimeAgentLearner(SystemLearner):
     # -- paths ---------------------------------------------------------------
 
     @property
-    def state_dir(self) -> Path:
-        """Everything prime-agent may write lives under here (it also creates
-        siblings of the session directory, such as ``session-artifacts``). The
-        adapter's own logs stay outside it, unreadable by the system."""
-        return self.workdir / "state"
-
-    @property
     def agent_dir(self) -> Path:
         return self.state_dir / "agent"
 

@@ -252,10 +252,6 @@ class ACPSystemLearner(SystemLearner):
     # -- paths ---------------------------------------------------------------
 
     @property
-    def state_dir(self) -> Path:
-        return self.workdir / "state"
-
-    @property
     def home_dir(self) -> Path:
         return self.state_dir / "home"
 
