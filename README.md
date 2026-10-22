@@ -112,8 +112,14 @@ uv run arc-baselines test runs/arc1/openclaw-ws0 --schedule arc1-seen0-1.json   
 # its reset reference: the same instances, the harness wiped before each
 uv run arc-baselines run --learner $LEARNER --learner-kwargs "$SETTINGS" --llm-defaults "$EFFORT" \
   --schedule arc1-held-out0-1.json --out runs/arc1/openclaw-reset-held-out
-uv run continual-arc transfer runs/arc1/openclaw-ws0/frozen/held-out/play runs/arc1/openclaw-reset-held-out \
-  runs/arc1/stateless-held-out
+uv run continual-arc transfer runs/arc1/openclaw-ws0/frozen/held-out/play runs/arc1/openclaw-reset-held-out
+
+# the share learned over the stream: the same stream, the harness wiped before every instance
+uv run continual-arc schedule make --config arc1-small --mode workstreams --seed 0 --no-epilogue --reset-each \
+  --out arc1-ws0-reset.json
+uv run arc-baselines run --learner $LEARNER --learner-kwargs "$SETTINGS" --llm-defaults "$EFFORT" \
+  --schedule arc1-ws0-reset.json --out runs/arc1/openclaw-ws0-reset
+uv run continual-arc learned runs/arc1/openclaw-ws0 runs/arc1/openclaw-ws0-reset
 ```
 
 `arc-baselines test` takes the run directory of a stream played whole with `--out` and nothing after it
@@ -132,7 +138,8 @@ refused.
 One process at a time plays a run, its stream or a test of it, so the two tests play one after the other, a second
 refused while one plays. Each takes as long as its 100 instances played in turn, about half as long as the stream. The
 references need nothing of the stream's, so they can play beside them, each in a run directory of its own: the harness
-reset before every instance, as above, and the stateless floor, `BareModelLearner` on the same schedules. A test puts
+reset before every instance of each test and of the stream, as above. The bare model, `BareModelLearner` on the tests'
+schedules, is no reference: its runs are shown beside T, which is flagged if the reset plays below them. A test puts
 back the state directory alone, so an adapter of your own keeps everything its harness persists under `self.state_dir`
 and its own logs outside it; on macOS the sandbox also lets a harness write the user's temporary and cache folders,
 which nothing puts back, in a test as in its stream. A learner that keeps what it learns in memory, as the demo-cache
