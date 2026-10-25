@@ -15,6 +15,12 @@
 
 # continual-arc-baselines
 
+> **This repository has moved.** The baselines are now [`baselines/`](https://github.com/unifyai/continual-arc/tree/main/baselines)
+> in [unifyai/continual-arc](https://github.com/unifyai/continual-arc), beside the benchmark and the training of the
+> paper's trained rows, with the learner behind its open-model rows, `CollectiveHarnessLearner`, among them. Install
+> them with `pip install "continual-arc-baselines @ git+https://github.com/unifyai/continual-arc@v0.2.0#subdirectory=baselines"`.
+> This copy is archived as it stood; its tag `v0.1.0` still installs, unchanged.
+
 <!-- ARXIV_ID_PENDING: replace every ARXIV_ID_PENDING in this file with the paper's arXiv id once the listing is out (Monday 19 October 2026, 20:00 ET), then delete this line -->
 The learners that the paper [*Continual-ARC: Measuring Skill Acquisition over a Working Lifetime*](https://unify.ai/blog/why-we-built-continual-arc)
 evaluates on the [Continual-ARC](https://github.com/unifyai/continual-arc) benchmark, and the harness around them: the
